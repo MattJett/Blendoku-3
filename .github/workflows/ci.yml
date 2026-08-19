@@ -98,30 +98,49 @@ jobs:
           shoot 02-level-07 -uiPreviewLevel 7
           shoot 03-level-84 -uiPreviewLevel 84
 
-      # The screenshots are uploaded as an artifact for humans, but an agent
-      # driving this repo cannot download artifacts. So also emit each one into
-      # the log, downscaled and base64'd, where it can be read back and decoded.
-      - name: Emit the screenshots into the log
+      # The screenshots upload as an artifact, which serves a person fine. An
+      # agent driving this repo cannot fetch them though — both the artifact
+      # and the raw log redirect to blob storage that its egress proxy blocks —
+      # so also stitch them into one small contact sheet and print it into the
+      # log as base64, which does come back through the API.
+      - name: Emit a contact sheet into the log
         if: always()
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install --quiet pillow
           "$RUNNER_TEMP/venv/bin/python" - <<'PY'
           import base64, io, pathlib
-          from PIL import Image
+          from PIL import Image, ImageDraw
 
-          for path in sorted(pathlib.Path("artifacts").glob("*.png")):
+          shots = sorted(pathlib.Path("artifacts").glob("*.png"))
+          if not shots:
+              raise SystemExit("no screenshots to stitch")
+
+          column = 210
+          gap, label = 12, 22
+          scaled = []
+          for path in shots:
               image = Image.open(path).convert("RGB")
-              width = 340
-              scaled = image.resize((width, round(image.height * width / image.width)))
-              buffer = io.BytesIO()
-              scaled.save(buffer, format="JPEG", quality=75, optimize=True)
-              blob = base64.b64encode(buffer.getvalue()).decode()
-              print(f"BEGIN_IMAGE {path.stem} {image.width}x{image.height} "
-                    f"-> {scaled.width}x{scaled.height} {len(blob)}b64")
-              for index in range(0, len(blob), 200):
-                  print(blob[index:index + 200])
-              print(f"END_IMAGE {path.stem}")
+              scaled.append((path.stem,
+                             image.resize((column, round(image.height * column / image.width)))))
+
+          height = max(image.height for _, image in scaled) + label + gap
+          width = gap + len(scaled) * (column + gap)
+          sheet = Image.new("RGB", (width, height), (16, 18, 24))
+          draw = ImageDraw.Draw(sheet)
+          for index, (name, image) in enumerate(scaled):
+              x = gap + index * (column + gap)
+              draw.text((x, 5), name, fill=(190, 200, 215))
+              sheet.paste(image, (x, label))
+
+          sheet.save("artifacts/contact-sheet.jpg", quality=76, optimize=True)
+          buffer = io.BytesIO()
+          sheet.save(buffer, format="JPEG", quality=76, optimize=True)
+          blob = base64.b64encode(buffer.getvalue()).decode()
+          print(f"BEGIN_SHEET {sheet.width}x{sheet.height} {len(blob)}b64")
+          for index in range(0, len(blob), 240):
+              print(blob[index:index + 240])
+          print("END_SHEET")
           PY
 
       - uses: actions/upload-artifact@v4

@@ -75,48 +75,55 @@ jobs:
 
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl install "$udid" "$app"
-          xcrun simctl launch "$udid" "$BUNDLE_ID"
-          sleep 8
-
           mkdir -p artifacts
-          xcrun simctl io "$udid" screenshot artifacts/home.png
 
-          # `terminate` fails if nothing is running, which is exactly the
-          # signal we want: the app launched and then died.
-          if ! xcrun simctl terminate "$udid" "$BUNDLE_ID"; then
-            echo "::error::the app was not running 8s after launch — it crashed" >&2
-            xcrun simctl spawn "$udid" log show --last 2m --predicate 'process == "Blendoku3"' \
-              --style compact | tail -n 80 >&2 || true
-            exit 1
-          fi
-          echo "app launched and was still running after 8 seconds"
+          # `terminate` fails when nothing is running, which is exactly the
+          # signal we want: the app came up and then died.
+          shoot() {
+            local name="$1"; shift
+            xcrun simctl launch "$udid" "$BUNDLE_ID" "$@"
+            sleep 8
+            xcrun simctl io "$udid" screenshot "artifacts/$name.png"
+            if ! xcrun simctl terminate "$udid" "$BUNDLE_ID"; then
+              echo "::error::app was not running 8s after launch ($name) — it crashed" >&2
+              xcrun simctl spawn "$udid" log show --last 3m \
+                --predicate 'process == "Blendoku3"' --style compact | tail -n 80 >&2 || true
+              return 1
+            fi
+            echo "$name: launched and still running after 8 seconds"
+          }
 
-      # A coarse luminance map of the screenshot, printed into the log. Enough
-      # to tell a rendered board from a blank screen without leaving CI.
+          shoot 01-home
+          # The board is where the layout risk lives, so photograph one too.
+          shoot 02-level-07 -uiPreviewLevel 7
+          shoot 03-level-84 -uiPreviewLevel 84
+
+      # A coarse luminance map of each screenshot, printed into the log, so a
+      # blank or broken screen is visible without downloading anything.
       - name: Describe what was on screen
         if: always()
         run: |
-          python3 -m pip install --quiet --disable-pip-version-check pillow || exit 0
-          python3 - <<'PY' || true
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pillow
+          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
+          import pathlib
           from PIL import Image
-          image = Image.open("artifacts/home.png").convert("RGB")
-          width, height = image.size
-          print(f"screenshot {width}x{height}")
-          small = image.resize((36, 60))
+
           ramp = " .:-=+*#%@"
-          rows = []
-          for y in range(small.height):
-              row = ""
-              for x in range(small.width):
-                  r, g, b = small.getpixel((x, y))
-                  luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-                  row += ramp[min(len(ramp) - 1, int(luma * len(ramp)))]
-              rows.append(row)
-          print("\n".join(rows))
-          colours = image.resize((1, 1)).getpixel((0, 0))
-          print("mean colour", colours)
-          distinct = len(set(image.resize((48, 80)).getdata()))
-          print("distinct colours in a 48x80 sample:", distinct)
+          for path in sorted(pathlib.Path("artifacts").glob("*.png")):
+              image = Image.open(path).convert("RGB")
+              print(f"\n=== {path.name}  {image.width}x{image.height} ===")
+              small = image.resize((40, 64))
+              for y in range(small.height):
+                  row = ""
+                  for x in range(small.width):
+                      r, g, b = small.getpixel((x, y))
+                      luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+                      row += ramp[min(len(ramp) - 1, int(luma * len(ramp)))]
+                  print(row)
+              print("mean colour", image.resize((1, 1)).getpixel((0, 0)))
+              print("distinct colours in a 64x64 sample:",
+                    len(set(image.resize((64, 64)).getdata())))
           PY
 
       - uses: actions/upload-artifact@v4

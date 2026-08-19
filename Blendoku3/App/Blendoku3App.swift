@@ -16,10 +16,25 @@ struct Blendoku3App: App {
                 .environment(progress)
                 .environment(settings)
                 .preferredColorScheme(.dark)
-                .onAppear { Haptics.isEnabled = settings.hapticsEnabled }
+                .onAppear {
+                    Haptics.isEnabled = settings.hapticsEnabled
+                    openPreviewLevelIfAsked()
+                }
                 .onChange(of: settings.hapticsEnabled) { _, enabled in
                     Haptics.isEnabled = enabled
                 }
         }
+    }
+
+    /// Opens straight into a level when launched with `-uiPreviewLevel <n>`.
+    /// iOS folds `-key value` launch arguments into the argument domain of
+    /// `UserDefaults`, which is volatile, so this leaves nothing behind. CI
+    /// uses it to photograph a real board instead of the menu:
+    ///
+    ///     xcrun simctl launch <device> com.mattjett.blendoku3 -uiPreviewLevel 42
+    private func openPreviewLevelIfAsked() {
+        let requested = UserDefaults.standard.integer(forKey: "uiPreviewLevel")
+        guard requested > 0 else { return }
+        router.push(.game(min(max(requested, 1), DifficultyCurve.levelCount)))
     }
 }

@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: Build and test (iOS)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode 16
+        run: |
+          latest=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
+          xcodebuild -version
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Blendoku3.xcodeproj \
+            -scheme Blendoku3 \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -n 200
+
+      - name: Pick a simulator
+        id: simulator
+        run: |
+          udid=$(xcrun simctl list devices available --json | python3 -c '
+import json, sys
+runtimes = json.load(sys.stdin)["devices"]
+best = None
+for runtime, devices in sorted(runtimes.items()):
+    if "iOS" not in runtime:
+        continue
+    for device in devices:
+        if device.get("isAvailable") and "iPhone" in device["name"]:
+            best = device["udid"]
+if best:
+    print(best)
+else:
+    sys.exit("no available iPhone simulator")
+')
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Blendoku3.xcodeproj \
+            -scheme Blendoku3 \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -n 400
+
+  levels:
+    name: Verify the level book
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The Python mirror of the generator: cheap, and it catches a broken
+      # difficulty curve without needing a Mac.
+      - name: Generate all 100 levels and check they each have one solution
+        run: |
+          python3 Tools/levelcheck/report.py | tee report.txt
+          grep -q "levels generated : 100/100" report.txt
+          grep -q "non-unique       : \[\]" report.txt

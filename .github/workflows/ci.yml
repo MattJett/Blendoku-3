@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  BUNDLE_ID: com.mattjett.blendoku3
+
 jobs:
   ios:
     name: Build and test (iOS)
@@ -31,6 +34,7 @@ jobs:
             -project Blendoku3.xcodeproj \
             -scheme Blendoku3 \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/dd \
             CODE_SIGNING_ALLOWED=NO \
             | tail -n 200
 
@@ -55,8 +59,145 @@ jobs:
             -project Blendoku3.xcodeproj \
             -scheme Blendoku3 \
             -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath build/dd \
             CODE_SIGNING_ALLOWED=NO \
             | tail -n 400
+
+      # Tests prove the model is right; they say nothing about whether the app
+      # actually comes up. Launch it and check it is still alive a few seconds
+      # later, which is the failure that would waste a trip to a real phone.
+      - name: Launch the app and check it survives
+        run: |
+          set -e
+          udid="${{ steps.simulator.outputs.udid }}"
+          app="build/dd/Build/Products/Debug-iphonesimulator/Blendoku3.app"
+          test -d "$app" || { echo "no app bundle at $app" >&2; exit 1; }
+
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$app"
+          mkdir -p artifacts
+
+          # `terminate` fails when nothing is running, which is exactly the
+          # signal we want: the app came up and then died.
+          shoot() {
+            local name="$1"; shift
+            xcrun simctl launch "$udid" "$BUNDLE_ID" "$@"
+            sleep 8
+            xcrun simctl io "$udid" screenshot "artifacts/$name.png"
+            if ! xcrun simctl terminate "$udid" "$BUNDLE_ID"; then
+              echo "::error::app was not running 8s after launch ($name) — it crashed" >&2
+              xcrun simctl spawn "$udid" log show --last 3m \
+                --predicate 'process == "Blendoku3"' --style compact | tail -n 80 >&2 || true
+              return 1
+            fi
+            echo "$name: launched and still running after 8 seconds"
+          }
+
+          shoot 01-home
+          # The board is where the layout risk lives, so photograph one too.
+          shoot 02-level-07 -uiPreviewLevel 7
+          shoot 03-level-84 -uiPreviewLevel 84
+
+      # The screenshots upload as an artifact, which serves a person fine. An
+      # agent driving this repo cannot fetch them though — both the artifact
+      # and the raw log redirect to blob storage that its egress proxy blocks —
+      # so also stitch them into one small contact sheet and print it into the
+      # log as base64, which does come back through the API.
+      - name: Emit a contact sheet into the log
+        if: always()
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pillow
+          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
+          import base64, io, pathlib
+          from PIL import Image, ImageDraw
+
+          shots = sorted(pathlib.Path("artifacts").glob("*.png"))
+          if not shots:
+              raise SystemExit("no screenshots to stitch")
+
+          column = 210
+          gap, label = 12, 22
+          scaled = []
+          for path in shots:
+              image = Image.open(path).convert("RGB")
+              scaled.append((path.stem,
+                             image.resize((column, round(image.height * column / image.width)))))
+
+          height = max(image.height for _, image in scaled) + label + gap
+          width = gap + len(scaled) * (column + gap)
+          sheet = Image.new("RGB", (width, height), (16, 18, 24))
+          draw = ImageDraw.Draw(sheet)
+          for index, (name, image) in enumerate(scaled):
+              x = gap + index * (column + gap)
+              draw.text((x, 5), name, fill=(190, 200, 215))
+              sheet.paste(image, (x, label))
+
+          sheet.save("artifacts/contact-sheet.jpg", quality=76, optimize=True)
+          buffer = io.BytesIO()
+          sheet.save(buffer, format="JPEG", quality=76, optimize=True)
+          blob = base64.b64encode(buffer.getvalue()).decode()
+          print(f"BEGIN_SHEET {sheet.width}x{sheet.height} {len(blob)}b64")
+          for index in range(0, len(blob), 240):
+              print(blob[index:index + 240])
+          print("END_SHEET")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulator-screenshots
+          path: artifacts/*.png
+          retention-days: 14
+          if-no-files-found: warn
+
+  ipa:
+    name: Unsigned .ipa
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode 16
+        run: |
+          latest=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
+          xcodebuild -version
+
+      # Built for a real device but deliberately not signed: signing here would
+      # need somebody's Apple credentials. Sideloading tools re-sign it with
+      # your own Apple ID on the way onto the phone.
+      - name: Archive for device, unsigned
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project Blendoku3.xcodeproj \
+            -scheme Blendoku3 \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Blendoku3.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | tail -n 200
+
+      - name: Wrap it as an .ipa
+        run: |
+          set -e
+          app="$RUNNER_TEMP/Blendoku3.xcarchive/Products/Applications/Blendoku3.app"
+          test -d "$app" || { echo "no app in the archive" >&2; exit 1; }
+          mkdir -p "$RUNNER_TEMP/package/Payload"
+          cp -R "$app" "$RUNNER_TEMP/package/Payload/"
+          (cd "$RUNNER_TEMP/package" && zip -qry Blendoku3-unsigned.ipa Payload)
+          ls -lh "$RUNNER_TEMP/package/Blendoku3-unsigned.ipa"
+          echo "architectures:"
+          lipo -info "$app/Blendoku3" || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Blendoku3-unsigned-ipa
+          path: ${{ runner.temp }}/package/Blendoku3-unsigned.ipa
+          retention-days: 30
 
   levels:
     name: Verify the level book

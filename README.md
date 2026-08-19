@@ -16,6 +16,36 @@ no packages, no dependencies, no configuration.
 The project uses Xcode 16's synchronized file groups, so new files under
 `Blendoku3/` join the target automatically. `⌘U` runs the test suite.
 
+## Getting it onto an iPhone
+
+Apple will not let an app onto a phone unless it is signed by someone, so every
+route below ends with *your* Apple ID. A free Apple ID works — the only cost is
+that the app stops opening after **7 days** and has to be reinstalled. A paid
+Developer Program account ($99/yr) stretches that to a year and unlocks
+TestFlight.
+
+**With a Mac — the short way.** Open the project, pick your iPhone from the
+device menu, then in *Signing & Capabilities* set Team to your Apple ID and hit
+Run. Xcode handles the certificate and the provisioning profile itself. Two
+things trip people up the first time:
+
+- On the phone, *Settings → Privacy & Security → Developer Mode* has to be on
+  (iOS 16+). The phone reboots when you turn it on.
+- The first launch is blocked until you trust the certificate under
+  *Settings → General → VPN & Device Management*.
+
+**Without a Mac — sideload the CI build.** Every push builds an unsigned
+`.ipa`. Open the run under the repo's *Actions* tab, download the
+`Blendoku3-unsigned-ipa` artifact, and install it with
+[Sideloadly](https://sideloadly.io) or [AltStore](https://altstore.io) — both
+re-sign it with your Apple ID on the way onto the phone. The same Developer
+Mode and trust steps above apply.
+
+The bundle identifier is `com.mattjett.blendoku3`. If free provisioning refuses
+it because someone else has registered it, change
+`PRODUCT_BUNDLE_IDENTIFIER` in the project settings to anything unique and try
+again.
+
 ## How a level is built
 
 The whole game rests on one property: if three tiles sit in a line, the middle

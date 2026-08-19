@@ -117,20 +117,28 @@ extension BlendColor {
     }
 
     /// Gamma-encoded sRGB -> Oklab.
+    ///
+    /// These constants are the exact double-precision inverses of the matrices
+    /// in `rgb` above, rather than Ottosson's separately-rounded published
+    /// pair. Published, the two directions only agree to about seven digits,
+    /// which leaves a round trip off by ~1e-7; inverting the forward matrices
+    /// instead brings it to ~1e-14. The forward direction — the one that puts
+    /// colour on screen — is untouched, so nothing the generator produces
+    /// moves by a bit.
     init(rgb: RGBComponents) {
         let r = BlendColor.decodeSRGB(rgb.red)
         let g = BlendColor.decodeSRGB(rgb.green)
         let b = BlendColor.decodeSRGB(rgb.blue)
 
-        let lc = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
-        let mc = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
-        let sc = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
+        let lc = 0.4122214708018042 * r + 0.5363325363454300 * g + 0.0514459928527659 * b
+        let mc = 0.2119034982505859 * r + 0.6806995451361226 * g + 0.1073969566132915 * b
+        let sc = 0.0883024618887421 * r + 0.2817188376235318 * g + 0.6299787004877261 * b
 
         let lp = cbrt(lc), mp = cbrt(mc), sp = cbrt(sc)
 
-        self.init(l: 0.2104542553 * lp + 0.7936177850 * mp - 0.0040720468 * sp,
-                  a: 1.9779984951 * lp - 2.4285922050 * mp + 0.4505937099 * sp,
-                  b: 0.0259040371 * lp + 0.7827717662 * mp - 0.8086757660 * sp)
+        self.init(l: 0.2104542682745813 * lp + 0.7936177747300267 * mp - 0.0040720430046080 * sp,
+                  a: 1.9779985323885081 * lp - 2.4285922419362862 * mp + 0.4505937095477779 * sp,
+                  b: 0.0259040424876582 * lp + 0.7827717124269178 * mp - 0.8086757549145760 * sp)
     }
 
     static func encodeSRGB(_ value: Double) -> Double {

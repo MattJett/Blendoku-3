@@ -2,20 +2,24 @@ import XCTest
 @testable import Blendoku3
 
 final class ColorMathTests: XCTestCase {
+    /// Sweeps the cube rather than picking a few colours, because the failure
+    /// this guards against — the two conversion matrices drifting out of being
+    /// each other's inverse — shows up as a small error everywhere at once.
     func testSRGBRoundTripIsExact() {
-        let samples: [RGBComponents] = [
-            RGBComponents(red: 0, green: 0, blue: 0),
-            RGBComponents(red: 1, green: 1, blue: 1),
-            RGBComponents(red: 0.2, green: 0.6, blue: 0.9),
-            RGBComponents(red: 0.85, green: 0.13, blue: 0.42),
-            RGBComponents(red: 0.5, green: 0.5, blue: 0.5),
-        ]
-        for sample in samples {
-            let round = BlendColor(rgb: sample).rgb
-            XCTAssertEqual(round.red, sample.red, accuracy: 1e-9)
-            XCTAssertEqual(round.green, sample.green, accuracy: 1e-9)
-            XCTAssertEqual(round.blue, sample.blue, accuracy: 1e-9)
+        let steps = stride(from: 0.0, through: 1.0, by: 0.2)
+        var worst = 0.0
+        for red in steps {
+            for green in steps {
+                for blue in steps {
+                    let sample = RGBComponents(red: red, green: green, blue: blue)
+                    let round = BlendColor(rgb: sample).rgb
+                    worst = max(worst, abs(round.red - sample.red))
+                    worst = max(worst, abs(round.green - sample.green))
+                    worst = max(worst, abs(round.blue - sample.blue))
+                }
+            }
         }
+        XCTAssertLessThan(worst, 1e-12, "sRGB round trip drifted by \(worst)")
     }
 
     func testMidpointOfTwoColoursIsTheirAverage() {

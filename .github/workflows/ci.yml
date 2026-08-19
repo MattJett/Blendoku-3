@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  BUNDLE_ID: com.mattjett.blendoku3
+
 jobs:
   ios:
     name: Build and test (iOS)
@@ -31,6 +34,7 @@ jobs:
             -project Blendoku3.xcodeproj \
             -scheme Blendoku3 \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/dd \
             CODE_SIGNING_ALLOWED=NO \
             | tail -n 200
 
@@ -55,8 +59,121 @@ jobs:
             -project Blendoku3.xcodeproj \
             -scheme Blendoku3 \
             -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath build/dd \
             CODE_SIGNING_ALLOWED=NO \
             | tail -n 400
+
+      # Tests prove the model is right; they say nothing about whether the app
+      # actually comes up. Launch it and check it is still alive a few seconds
+      # later, which is the failure that would waste a trip to a real phone.
+      - name: Launch the app and check it survives
+        run: |
+          set -e
+          udid="${{ steps.simulator.outputs.udid }}"
+          app="build/dd/Build/Products/Debug-iphonesimulator/Blendoku3.app"
+          test -d "$app" || { echo "no app bundle at $app" >&2; exit 1; }
+
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$app"
+          xcrun simctl launch "$udid" "$BUNDLE_ID"
+          sleep 8
+
+          mkdir -p artifacts
+          xcrun simctl io "$udid" screenshot artifacts/home.png
+
+          # `terminate` fails if nothing is running, which is exactly the
+          # signal we want: the app launched and then died.
+          if ! xcrun simctl terminate "$udid" "$BUNDLE_ID"; then
+            echo "::error::the app was not running 8s after launch — it crashed" >&2
+            xcrun simctl spawn "$udid" log show --last 2m --predicate 'process == "Blendoku3"' \
+              --style compact | tail -n 80 >&2 || true
+            exit 1
+          fi
+          echo "app launched and was still running after 8 seconds"
+
+      # A coarse luminance map of the screenshot, printed into the log. Enough
+      # to tell a rendered board from a blank screen without leaving CI.
+      - name: Describe what was on screen
+        if: always()
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pillow || exit 0
+          python3 - <<'PY' || true
+          from PIL import Image
+          image = Image.open("artifacts/home.png").convert("RGB")
+          width, height = image.size
+          print(f"screenshot {width}x{height}")
+          small = image.resize((36, 60))
+          ramp = " .:-=+*#%@"
+          rows = []
+          for y in range(small.height):
+              row = ""
+              for x in range(small.width):
+                  r, g, b = small.getpixel((x, y))
+                  luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+                  row += ramp[min(len(ramp) - 1, int(luma * len(ramp)))]
+              rows.append(row)
+          print("\n".join(rows))
+          colours = image.resize((1, 1)).getpixel((0, 0))
+          print("mean colour", colours)
+          distinct = len(set(image.resize((48, 80)).getdata()))
+          print("distinct colours in a 48x80 sample:", distinct)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulator-screenshots
+          path: artifacts/*.png
+          retention-days: 14
+          if-no-files-found: warn
+
+  ipa:
+    name: Unsigned .ipa
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode 16
+        run: |
+          latest=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
+          xcodebuild -version
+
+      # Built for a real device but deliberately not signed: signing here would
+      # need somebody's Apple credentials. Sideloading tools re-sign it with
+      # your own Apple ID on the way onto the phone.
+      - name: Archive for device, unsigned
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project Blendoku3.xcodeproj \
+            -scheme Blendoku3 \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Blendoku3.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | tail -n 200
+
+      - name: Wrap it as an .ipa
+        run: |
+          set -e
+          app="$RUNNER_TEMP/Blendoku3.xcarchive/Products/Applications/Blendoku3.app"
+          test -d "$app" || { echo "no app in the archive" >&2; exit 1; }
+          mkdir -p "$RUNNER_TEMP/package/Payload"
+          cp -R "$app" "$RUNNER_TEMP/package/Payload/"
+          (cd "$RUNNER_TEMP/package" && zip -qry Blendoku3-unsigned.ipa Payload)
+          ls -lh "$RUNNER_TEMP/package/Blendoku3-unsigned.ipa"
+          echo "architectures:"
+          lipo -info "$app/Blendoku3" || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Blendoku3-unsigned-ipa
+          path: ${{ runner.temp }}/package/Blendoku3-unsigned.ipa
+          retention-days: 30
 
   levels:
     name: Verify the level book

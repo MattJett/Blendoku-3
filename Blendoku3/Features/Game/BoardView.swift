@@ -130,7 +130,7 @@ struct BoardView: View {
         init(columns: Int, rows: Int, available: CGSize) {
             let rawStep = min(available.width / CGFloat(max(columns, 1)),
                               available.height / CGFloat(max(rows, 1)))
-            step = min(max(rawStep, 22), 76)
+            step = min(max(rawStep, 22), 92)
             // No gap: cells in the same shape are meant to touch, and separate
             // shapes are already kept a clear cell apart by the generator.
             tile = step

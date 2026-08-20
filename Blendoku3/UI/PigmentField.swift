@@ -22,7 +22,11 @@ struct PigmentField: View {
         return Array(Self.spread(source, count: 3))
     }
 
-    private var intensity: Double { scheme == .dark ? 0.40 : 0.30 }
+    /// Low on purpose. The first build of this washed the whole home screen
+    /// green, which is the exact failure the design is meant to prevent: the
+    /// ground has to stay neutral or there is nothing for a tile's colour to be
+    /// judged against.
+    private var intensity: Double { scheme == .dark ? 0.18 : 0.13 }
 
     var body: some View {
         GeometryReader { proxy in
@@ -45,10 +49,10 @@ struct PigmentField: View {
                 .blendMode(scheme == .dark ? .screen : .multiply)
 
                 // Pulls the corners down so the content sits in a pool of light.
-                RadialGradient(colors: [.clear, Theme.ground.opacity(scheme == .dark ? 0.55 : 0.35)],
+                RadialGradient(colors: [.clear, Theme.ground.opacity(scheme == .dark ? 0.72 : 0.50)],
                                center: .center,
-                               startRadius: span * 0.24,
-                               endRadius: span * 0.72)
+                               startRadius: span * 0.20,
+                               endRadius: span * 0.66)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -64,13 +68,15 @@ struct PigmentField: View {
     /// edges, so what you see is the falloff rather than the orb.
     private static func anchor(_ index: Int, in size: CGSize) -> CGPoint {
         switch index {
-        case 0: CGPoint(x: size.width * 0.16, y: size.height * 0.13)
-        case 1: CGPoint(x: size.width * 0.92, y: size.height * 0.42)
-        default: CGPoint(x: size.width * 0.34, y: size.height * 0.94)
+        case 0: CGPoint(x: size.width * 0.06, y: size.height * 0.08)
+        case 1: CGPoint(x: size.width * 1.02, y: size.height * 0.40)
+        default: CGPoint(x: size.width * 0.28, y: size.height * 1.00)
         }
     }
 
-    private static let scales: [CGFloat] = [0.95, 0.78, 1.05]
+    /// Small enough that each bloom is a local event with clean ground around
+    /// it, rather than three overlapping washes that cover the screen.
+    private static let scales: [CGFloat] = [0.55, 0.44, 0.60]
     private static let travel: [CGSize] = [
         CGSize(width: 22, height: 16),
         CGSize(width: -18, height: 26),

@@ -16,6 +16,17 @@ no packages, no dependencies, no configuration.
 The project uses Xcode 16's synchronized file groups, so new files under
 `Blendoku3/` join the target automatically. `⌘U` runs the test suite.
 
+To build and play it on a simulator without opening Xcode:
+
+```sh
+Tools/run-simulator.sh            # boot a simulator and play
+Tools/run-simulator.sh 42         # open straight into level 42
+Tools/run-simulator.sh 42 paper   # ...on the light ground
+```
+
+Simulator builds are not code signed, so that route needs nothing from your
+Apple ID. Getting it onto real hardware does.
+
 ## Getting it onto an iPhone
 
 Apple will not let an app onto a phone unless it is signed by someone, so every

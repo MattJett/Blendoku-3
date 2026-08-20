@@ -101,10 +101,11 @@ jobs:
           # Paper is a real design rather than a tint flip, so it gets
           # photographed too — a light ground is where low-contrast hairlines
           # and micro-caps fail, and that failure is invisible in dark mode.
-          xcrun simctl ui "$udid" appearance light
-          shoot 04-paper-home
-          shoot 05-paper-level-84 -uiPreviewLevel 84
-          xcrun simctl ui "$udid" appearance dark
+          # The ground is set through the app rather than `simctl ui
+          # appearance`, which exits zero on this runner without changing
+          # anything and silently photographs the wrong mode.
+          shoot 04-paper-home -uiPreviewAppearance paper
+          shoot 05-paper-level-84 -uiPreviewAppearance paper -uiPreviewLevel 84
 
       # The screenshots upload as an artifact, which serves a person fine. An
       # agent driving this repo cannot fetch them though — both the artifact

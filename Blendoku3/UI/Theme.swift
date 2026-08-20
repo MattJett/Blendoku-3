@@ -27,7 +27,7 @@ enum Theme {
     static let success = Color(red: 0.435, green: 0.847, blue: 0.612)
     static let warning = Color(red: 0.976, green: 0.671, blue: 0.365)
 
-    static let tileCornerRatio: CGFloat = 0.24
+    static let tileCornerRatio: CGFloat = 0.22
 
     static func display(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
         .system(size: size, weight: weight, design: .rounded)

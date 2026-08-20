@@ -122,6 +122,14 @@ Tools/
 
 ## Feel
 
+Tiles on the board meet edge to edge — no gap, no outline, no per-tile
+highlight — and a tile only rounds a corner where both of its edges are
+exposed. A finished run therefore reads as one continuous band of colour with
+rounded ends, which is the whole payoff of getting it right. Nothing on the
+board is allowed to scale for the same reason: a tile that grew would ride over
+its neighbours, so landing and solving are animated with light rather than
+motion.
+
 Drag a tile and it lifts above your finger with a shadow; the slot under it
 swells and the drop lands with a spring and a tap of haptics. Finishing a board
 sends a ripple across it, cell by cell, before the confetti. Screens slide a

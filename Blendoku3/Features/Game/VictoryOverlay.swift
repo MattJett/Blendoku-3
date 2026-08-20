@@ -102,18 +102,28 @@ struct VictoryOverlay: View {
 /// the panel, an unearned one is pressed into it. Reading it is the same act as
 /// reading the rest of the screen, which is what keeps the window monochrome
 /// without making it flat.
+///
+/// The two states differ in size as well as in lighting. Shading alone is not
+/// enough at this scale — a bump and a dent sixteen points across look much the
+/// same at a glance, and a score you have to squint at is not a score. The size
+/// step is what makes the count readable; the lighting is what makes it belong.
 @MainActor
 private struct SoftPips: View {
     let filled: Int
     let total: Int
 
+    private let cell: CGFloat = 22
+
     var body: some View {
         HStack(spacing: Theme.Space.snug) {
             ForEach(0..<total, id: \.self) { index in
+                let earned = index < filled
                 SoftSurface(shape: Circle(),
-                            depth: index < filled ? 7 : 5,
-                            pressed: index >= filled)
-                    .frame(width: 16, height: 16)
+                            depth: earned ? 9 : 6,
+                            pressed: !earned)
+                    .frame(width: earned ? cell : cell * 0.64,
+                           height: earned ? cell : cell * 0.64)
+                    .frame(width: cell, height: cell)
             }
         }
         .padding(.vertical, 2)

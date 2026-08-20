@@ -93,24 +93,29 @@ jobs:
             echo "$name: launched and still running after 8 seconds"
           }
 
-          shoot 01-home
-          # The board is where the layout risk lives, so photograph one too.
-          shoot 02-level-07 -uiPreviewLevel 7
-          shoot 03-level-84 -uiPreviewLevel 84
-
-          # Paper is a real design rather than a tint flip, so it gets
-          # photographed too — a light ground is where low-contrast hairlines
-          # and micro-caps fail, and that failure is invisible in dark mode.
+          # Both grounds are named explicitly, never left to default. The app
+          # follows the system appearance now, the simulator boots light, and
+          # so a shot with no ground named is a paper shot — which is how a
+          # whole run of "dark" screenshots quietly became light ones.
+          #
           # The ground is set through the app rather than `simctl ui
           # appearance`, which exits zero on this runner without changing
           # anything and silently photographs the wrong mode.
+          shoot 01-ink-home -uiPreviewAppearance ink
+          # The board is where the layout risk lives, so photograph one too.
+          shoot 02-ink-level-07 -uiPreviewAppearance ink -uiPreviewLevel 7
+          shoot 03-ink-level-84 -uiPreviewAppearance ink -uiPreviewLevel 84
+
+          # Paper is a real design rather than a tint flip. A light ground is
+          # where low-contrast hairlines, micro-caps and soft shadows fail, and
+          # that failure is invisible in dark mode.
           shoot 04-paper-home -uiPreviewAppearance paper
           shoot 05-paper-level-84 -uiPreviewAppearance paper -uiPreviewLevel 84
 
           # The victory panel, on both grounds. It is the most sculpted surface
           # in the app, so it is where a wrong shadow shows up first.
-          shoot 06-victory -uiPreviewLevel 3 -uiPreviewSolved 1
-          shoot 07-paper-victory -uiPreviewAppearance paper -uiPreviewLevel 3 -uiPreviewSolved 1
+          shoot 06-ink-victory -uiPreviewAppearance ink -uiPreviewLevel 26 -uiPreviewSolved 1
+          shoot 07-paper-victory -uiPreviewAppearance paper -uiPreviewLevel 26 -uiPreviewSolved 1
 
       # The screenshots upload as an artifact, which serves a person fine. An
       # agent driving this repo cannot fetch them though — both the artifact

@@ -26,7 +26,11 @@ struct PigmentField: View {
     /// green, which is the exact failure the design is meant to prevent: the
     /// ground has to stay neutral or there is nothing for a tile's colour to be
     /// judged against.
-    private var intensity: Double { scheme == .dark ? 0.18 : 0.13 }
+    ///
+    /// Paper needs slightly more than ink: multiplying a bloom into a near-white
+    /// page moves it far less than screening the same bloom onto a near-black
+    /// one, and at ink's setting the light ground came out perfectly flat.
+    private var intensity: Double { scheme == .dark ? 0.18 : 0.20 }
 
     var body: some View {
         GeometryReader { proxy in
@@ -49,7 +53,7 @@ struct PigmentField: View {
                 .blendMode(scheme == .dark ? .screen : .multiply)
 
                 // Pulls the corners down so the content sits in a pool of light.
-                RadialGradient(colors: [.clear, Theme.ground.opacity(scheme == .dark ? 0.72 : 0.50)],
+                RadialGradient(colors: [.clear, Theme.ground.opacity(scheme == .dark ? 0.72 : 0.34)],
                                center: .center,
                                startRadius: span * 0.20,
                                endRadius: span * 0.66)

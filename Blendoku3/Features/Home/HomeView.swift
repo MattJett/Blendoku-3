@@ -27,7 +27,7 @@ struct HomeView: View {
             Spacer(minLength: 20)
 
             BlendPreviewStrip(palette: palette)
-                .frame(height: 62)
+                .frame(height: 104)
                 .padding(.horizontal, 34)
                 .staggeredAppear(index: 2, perItem: 0.08)
 
@@ -105,43 +105,84 @@ private struct GradientWordmark: View {
     }
 }
 
-/// A little five-tile gradient that keeps re-blending itself, as a taste of
-/// what the game asks for.
+/// A six-tile blend that keeps taking one tile out and dropping it back.
+///
+/// The tiles sit flush, exactly as they do on the board, so the front door
+/// shows the moment the whole game is built around: the gap closing and the
+/// gradient becoming continuous again.
 @MainActor
 private struct BlendPreviewStrip: View {
     let palette: [BlendColor]
-    @State private var shuffled = false
+
+    @State private var liftedIndex: Int?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let count = 6
 
     private var colours: [BlendColor] {
         guard let first = palette.first, let last = palette.last else { return [] }
-        return (0..<6).map { BlendColor.mix(first, last, Double($0) / 5) }
+        return (0..<count).map { BlendColor.mix(first, last, Double($0) / Double(count - 1)) }
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            ForEach(Array(colours.enumerated()), id: \.offset) { index, colour in
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(colour))
-                    .offset(y: shuffled ? offset(for: index) : 0)
-                    .animation(.spring(response: 0.7, dampingFraction: 0.62)
-                        .delay(Double(index) * 0.05), value: shuffled)
+        GeometryReader { proxy in
+            let side = min(proxy.size.width / CGFloat(count), proxy.size.height * 0.58)
+
+            HStack(spacing: 0) {
+                ForEach(Array(colours.enumerated()), id: \.offset) { index, colour in
+                    cell(index: index, colour: colour, side: side)
+                }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .task { await drift() }
+        .task { await cycle() }
         .accessibilityHidden(true)
     }
 
-    private func drift() async {
-        guard !reduceMotion else { return }
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(2.6))
-            shuffled.toggle()
+    @ViewBuilder
+    private func cell(index: Int, colour: BlendColor, side: CGFloat) -> some View {
+        let lifted = liftedIndex == index
+
+        ZStack {
+            // Only visible once the tile above it has moved out of the way.
+            SlotView(size: side, isHovered: false, isHinted: false)
+                .opacity(lifted ? 1 : 0)
+
+            TileView(colour: colour, size: side, role: .placed,
+                     corners: corners(for: index), bleed: 0.5)
+                .offset(y: lifted ? -side * 0.46 : 0)
+                .scaleEffect(lifted ? 1.06 : 1)
+                .shadow(color: .black.opacity(lifted ? 0.5 : 0),
+                        radius: lifted ? 14 : 0, y: lifted ? 9 : 0)
         }
+        .frame(width: side, height: side)
+        .zIndex(lifted ? 1 : 0)
     }
 
-    private func offset(for index: Int) -> CGFloat {
-        [-8, 6, -4, 9, -6, 4][index % 6]
+    /// Only the two ends of the strip round, so the six read as one bar.
+    private func corners(for index: Int) -> TileCorners {
+        var rounded: TileCorners = []
+        if index == 0 { rounded.formUnion([.topLeading, .bottomLeading]) }
+        if index == count - 1 { rounded.formUnion([.topTrailing, .bottomTrailing]) }
+        return rounded
+    }
+
+    private func cycle() async {
+        guard !reduceMotion else { return }
+        var step = 0
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(1700))
+            // Never the end tiles — a hole in the middle reads as a gap in the
+            // blend, which is the thing worth showing.
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) {
+                liftedIndex = 1 + step % (count - 2)
+            }
+            try? await Task.sleep(for: .milliseconds(950))
+            withAnimation(.spring(response: 0.44, dampingFraction: 0.70)) {
+                liftedIndex = nil
+            }
+            step += 1
+        }
     }
 }
 

@@ -15,10 +15,10 @@ struct Blendoku3App: App {
                 .environment(catalog)
                 .environment(progress)
                 .environment(settings)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(settings.appearance.colorScheme)
                 .onAppear {
                     Haptics.isEnabled = settings.hapticsEnabled
-                    openPreviewLevelIfAsked()
+                    applyLaunchOverrides()
                 }
                 .onChange(of: settings.hapticsEnabled) { _, enabled in
                     Haptics.isEnabled = enabled
@@ -26,15 +26,30 @@ struct Blendoku3App: App {
         }
     }
 
-    /// Opens straight into a level when launched with `-uiPreviewLevel <n>`.
-    /// iOS folds `-key value` launch arguments into the argument domain of
-    /// `UserDefaults`, which is volatile, so this leaves nothing behind. CI
-    /// uses it to photograph a real board instead of the menu:
+    /// Screen overrides for screenshots, taken from launch arguments.
     ///
-    ///     xcrun simctl launch <device> com.mattjett.blendoku3 -uiPreviewLevel 42
-    private func openPreviewLevelIfAsked() {
-        let requested = UserDefaults.standard.integer(forKey: "uiPreviewLevel")
-        guard requested > 0 else { return }
-        router.push(.game(min(max(requested, 1), DifficultyCurve.levelCount)))
+    /// iOS folds `-key value` launch arguments into the argument domain of
+    /// `UserDefaults`, which is volatile, so none of this is written back and
+    /// a normal launch is unaffected. CI uses it to photograph a real board on
+    /// a chosen ground instead of the menu in whatever mode it happens to be:
+    ///
+    ///     xcrun simctl launch <device> com.mattjett.blendoku3 \
+    ///         -uiPreviewLevel 42 -uiPreviewAppearance paper
+    ///
+    /// Driving the ground through the app rather than `simctl ui appearance`
+    /// is deliberate: that command exits zero on the runner without changing
+    /// anything, so a screenshot taken after it silently photographs the wrong
+    /// mode. This also puts the real Settings code path under the camera.
+    private func applyLaunchOverrides() {
+        let defaults = UserDefaults.standard
+
+        if let name = defaults.string(forKey: "uiPreviewAppearance"),
+           let requested = Appearance(rawValue: name.lowercased()) {
+            settings.appearance = requested
+        }
+
+        let level = defaults.integer(forKey: "uiPreviewLevel")
+        guard level > 0 else { return }
+        router.push(.game(min(max(level, 1), DifficultyCurve.levelCount)))
     }
 }

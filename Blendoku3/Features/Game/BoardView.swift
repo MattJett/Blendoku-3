@@ -22,6 +22,7 @@ struct BoardView: View {
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
+            .overlay { BoardMarks(metrics: metrics, columns: puzzle.columns, rows: puzzle.rows) }
             .preference(key: BoardPlacementKey.self,
                         value: BoardPlacement(frame: proxy.frame(in: .named(space)),
                                               step: metrics.step,
@@ -49,7 +50,8 @@ struct BoardView: View {
                 TileView(colour: tile.color, size: metrics.tile, role: .placed,
                          corners: corners, showValue: settings.showColorValues,
                          dimmed: dragged == tile, bleed: metrics.bleed)
-                    .overlay(selectionRing(for: tile, size: metrics.tile, corners: corners))
+                    .overlay(SelectionRing(size: metrics.tile, corners: corners,
+                                           active: controller.selected == tile))
                     .gesture(dragGesture(for: tile, origin: .slot(point), size: metrics.tile))
                     .onTapGesture { controller.tap(tile: tile, from: .slot(point)) }
             } else {
@@ -67,21 +69,6 @@ struct BoardView: View {
         .accessibilityLabel(label(for: point))
         .accessibilityAddTraits(session.tile(at: point) == nil && !puzzle.clues.contains(point)
                                 ? [.isButton] : [])
-    }
-
-    @ViewBuilder
-    private func selectionRing(for tile: Tile, size: CGFloat, corners: TileCorners) -> some View {
-        let radius = size * Theme.tileCornerRatio
-        UnevenRoundedRectangle(
-            topLeadingRadius: corners.contains(.topLeading) ? radius : 0,
-            bottomLeadingRadius: corners.contains(.bottomLeading) ? radius : 0,
-            bottomTrailingRadius: corners.contains(.bottomTrailing) ? radius : 0,
-            topTrailingRadius: corners.contains(.topTrailing) ? radius : 0,
-            style: .continuous)
-            .strokeBorder(Theme.accent, lineWidth: 2.5)
-            .opacity(controller.selected == tile ? 1 : 0)
-            .scaleEffect(controller.selected == tile ? 1 : 0.9)
-            .animation(Motion.tile, value: controller.selected)
     }
 
     private func dragGesture(for tile: Tile, origin: DropTarget, size: CGFloat) -> some Gesture {
@@ -143,7 +130,7 @@ struct BoardView: View {
         init(columns: Int, rows: Int, available: CGSize) {
             let rawStep = min(available.width / CGFloat(max(columns, 1)),
                               available.height / CGFloat(max(rows, 1)))
-            step = min(max(rawStep, 22), 76)
+            step = min(max(rawStep, 22), 92)
             // No gap: cells in the same shape are meant to touch, and separate
             // shapes are already kept a clear cell apart by the generator.
             tile = step
@@ -201,5 +188,40 @@ private struct SolveRipple: ViewModifier {
                 SpringKeyframe(0.0, duration: 0.44, spring: .smooth)
             }
         }
+    }
+}
+
+
+/// Four crosshairs at the corners of the grid.
+///
+/// The board needs to feel placed on the page rather than floating in the
+/// middle of it, but a box around it would add a second rectangle competing
+/// with the tiles. Registration marks — the moodboard's technical-drawing
+/// idiom — locate it with four hairlines and no enclosure.
+@MainActor
+private struct BoardMarks: View {
+    let metrics: BoardView.Metrics
+    let columns: Int
+    let rows: Int
+
+    private let gap: CGFloat = 12
+
+    var body: some View {
+        let first = metrics.centre(of: GridPoint(0, 0))
+        let last = metrics.centre(of: GridPoint(columns - 1, rows - 1))
+        let half = metrics.tile / 2
+        let left = first.x - half - gap
+        let right = last.x + half + gap
+        let top = first.y - half - gap
+        let bottom = last.y + half + gap
+
+        ZStack {
+            RegistrationMark().position(x: left, y: top)
+            RegistrationMark().position(x: right, y: top)
+            RegistrationMark().position(x: left, y: bottom)
+            RegistrationMark().position(x: right, y: bottom)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

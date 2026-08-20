@@ -1,53 +1,61 @@
 import SwiftUI
 
+/// The primary action. A high-contrast stadium — the moodboard's one
+/// unambiguous "press this", and the only element that fully inverts the
+/// ground.
 @MainActor
-struct PrimaryButtonStyle: ButtonStyle {
-    var tint: Color = Theme.accent
+struct PillButtonStyle: ButtonStyle {
     var wide = true
+    /// A small flush chip of colour on the leading edge, used on the home
+    /// screen to tie the button to the level it opens.
+    var chip: Color?
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.display(17, weight: .semibold))
-            .foregroundStyle(Color.black.opacity(0.86))
-            .padding(.vertical, 15)
-            .padding(.horizontal, 26)
-            .frame(maxWidth: wide ? .infinity : nil)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(tint.gradient)
-                    .shadow(color: tint.opacity(0.35), radius: configuration.isPressed ? 6 : 16,
-                            x: 0, y: configuration.isPressed ? 2 : 8)
-            )
-            .scaleEffect(configuration.isPressed ? 0.965 : 1)
-            .animation(Motion.tile, value: configuration.isPressed)
+        HStack(spacing: 10) {
+            if let chip {
+                Circle()
+                    .fill(chip)
+                    .frame(width: 9, height: 9)
+            }
+            configuration.label
+        }
+        .font(Theme.text(16, weight: .semibold))
+        .foregroundStyle(Theme.ground)
+        .padding(.vertical, 17)
+        .padding(.horizontal, Theme.Space.wide)
+        .frame(maxWidth: wide ? .infinity : nil)
+        .background(Capsule(style: .continuous).fill(Theme.textPrimary))
+        .opacity(configuration.isPressed ? 0.82 : 1)
+        .scaleEffect(configuration.isPressed ? 0.985 : 1)
+        .animation(Motion.quick, value: configuration.isPressed)
     }
 }
 
+/// A secondary action. Nothing but a hairline stadium; it recedes until you
+/// look for it.
 @MainActor
-struct GhostButtonStyle: ButtonStyle {
+struct OutlineButtonStyle: ButtonStyle {
     var wide = true
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Theme.display(16, weight: .medium))
+            .font(Theme.text(15, weight: .medium))
             .foregroundStyle(Theme.textPrimary)
-            .padding(.vertical, 14)
-            .padding(.horizontal, 24)
+            .padding(.vertical, 15)
+            .padding(.horizontal, Theme.Space.base)
             .frame(maxWidth: wide ? .infinity : nil)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Theme.surfaceRaised.opacity(configuration.isPressed ? 0.9 : 0.6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Theme.hairline, lineWidth: 1)
-                    )
-            )
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(Motion.tile, value: configuration.isPressed)
+            .background {
+                Capsule(style: .continuous)
+                    .strokeBorder(Theme.hairlineStrong, lineWidth: 1)
+                    .background(Capsule(style: .continuous)
+                        .fill(Theme.textPrimary.opacity(configuration.isPressed ? 0.06 : 0)))
+            }
+            .animation(Motion.quick, value: configuration.isPressed)
     }
 }
 
-/// Small round icon button used across the game HUD.
+/// Small round icon button used across the HUD. Hairline only — on a quiet
+/// ground a filled circle reads as loud as a coloured tile.
 @MainActor
 struct CircleIconButton: View {
     let systemName: String
@@ -58,14 +66,11 @@ struct CircleIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(tint)
-                .frame(width: 42, height: 42)
-                .background(
-                    Circle()
-                        .fill(Theme.surfaceRaised.opacity(0.65))
-                        .overlay(Circle().strokeBorder(Theme.hairline, lineWidth: 1))
-                )
+                .frame(width: 40, height: 40)
+                .background(Circle().strokeBorder(Theme.hairlineStrong, lineWidth: 1))
+                .contentShape(Circle())
         }
         .buttonStyle(PressScaleStyle())
         .accessibilityLabel(label)
@@ -76,8 +81,8 @@ struct CircleIconButton: View {
 struct PressScaleStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1)
-            .opacity(configuration.isPressed ? 0.75 : 1)
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .opacity(configuration.isPressed ? 0.6 : 1)
             .animation(Motion.quick, value: configuration.isPressed)
     }
 }

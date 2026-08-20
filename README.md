@@ -113,7 +113,7 @@ Blendoku3/
     Game/         GameSession — placements, validation, hints
     Persistence/  progress and settings
   Features/       Home, Levels, Game, Tutorial, Settings
-  UI/             theme, animated backdrop, particles, transitions, flow layout
+  UI/             design tokens, primitives, pigment field, transitions, flow layout
 Blendoku3Tests/   colour maths, solver, generation, session, progress
 Tools/
   levelcheck/     Python mirror of the generator (design-time only)
@@ -121,6 +121,13 @@ Tools/
 ```
 
 ## Feel
+
+**One rule governs the whole design: colour belongs to the puzzle.** The player
+is asked to judge one hue against its neighbour all day, and any chrome that is
+also saturated poisons that judgement. So the app is achromatic — a warm
+near-white page or a near-black one, one ember accent, and nothing else. Every
+saturated pixel on screen is either a tile or a bloom of the level's own
+palette, blurred past the point of being a shape.
 
 Tiles on the board meet edge to edge — no gap, no outline, no per-tile
 highlight — and a tile only rounds a corner where both of its edges are
@@ -130,14 +137,31 @@ board is allowed to scale for the same reason: a tile that grew would ride over
 its neighbours, so landing and solving are animated with light rather than
 motion.
 
-Drag a tile and it lifts above your finger with a shadow; the slot under it
-swells and the drop lands with a spring and a tap of haptics. Finishing a board
-sends a ripple across it, cell by cell, before the confetti. Screens slide a
-short distance rather than the full width, over a backdrop of slow drifting
-colour blobs tinted with the level's own palette.
+That flush block is the app's signature object, and it repeats: the home
+screen's preview strip runs the full width of the device with square ends, and
+each chapter in the level list is ten swatches meeting edge to edge rather than
+ten buttons that happen to be coloured.
 
-Everything honours **Reduce Motion**, which pauses the backdrop, the confetti and
-the looping demos.
+Everything else is drawn with hairlines. Sections are tracked-out micro-caps
+over a one-pixel rule; counters are monospaced figures with a caption
+underneath; the board is located by four crosshair registration marks rather
+than boxed in. The rule beneath the game header *is* the progress bar. Buttons
+are stadiums — one high-contrast fill for the primary action, hairline outlines
+for everything else.
+
+Drag a tile and it lifts above your finger, throwing its own colour onto the
+page as a glow; the slot under it swells and the drop lands with a spring and a
+tap of haptics. Finishing a board sends a ripple across it, cell by cell, and
+the solved palette blooms behind a sheet of glass. The selection ring is two
+strokes, one dark and one light, and carries no hue at all — a tinted ring is
+invisible against a tile that happens to share its hue, and on this board that
+case comes up constantly.
+
+Screens slide a short distance rather than the full width, over a ground
+carrying two or three slow blooms of the level's own palette.
+
+Everything honours **Reduce Motion**, which stills the ground and the looping
+demos.
 
 ## Accessibility
 
@@ -146,7 +170,9 @@ the looping demos.
   ("dark vivid teal, row 2, column 3") and its position.
 - **Show colour values** prints each tile's hex on it, for anyone who would
   rather read the colours than compare them.
-- The game is dark-only and portrait on iPhone by design.
+- **Paper, Ink or System** in Settings. Both grounds are real designs rather
+  than a tint flip, and the puzzle colours are legible against either.
+- Portrait on iPhone by design.
 
 ## Tools
 

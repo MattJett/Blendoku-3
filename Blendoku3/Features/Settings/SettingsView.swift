@@ -12,56 +12,76 @@ struct SettingsView: View {
         @Bindable var settings = settings
 
         VStack(spacing: 0) {
-            ScreenHeader(title: "Settings", subtitle: nil) { router.pop() }
+            ScreenHeader(title: "Settings", eyebrow: "Preferences") { router.pop() }
 
             ScrollView {
-                VStack(spacing: 14) {
-                    card {
-                        Toggle(isOn: $settings.hapticsEnabled) {
-                            label("Haptics", "A tap when a tile is picked up or lands")
-                        }
-                        divider
-                        Toggle(isOn: $settings.showColorValues) {
-                            label("Show colour values", "Prints each tile's hex value on the tile")
-                        }
-                        divider
-                        Toggle(isOn: $settings.showGridLabels) {
-                            label("Announce positions", "Adds row and column numbers to VoiceOver labels")
-                        }
+                VStack(alignment: .leading, spacing: Theme.Space.wide) {
+                    group("Appearance") {
+                        AppearancePicker(selection: $settings.appearance)
+                            .onChange(of: settings.appearance) { _, _ in settings.persist() }
                     }
-                    .tint(Theme.accent)
-                    .onChange(of: settings.hapticsEnabled) { _, _ in settings.persist() }
-                    .onChange(of: settings.showColorValues) { _, _ in settings.persist() }
-                    .onChange(of: settings.showGridLabels) { _, _ in settings.persist() }
 
-                    card {
-                        HStack {
-                            label("Progress", "\(progress.completedCount) levels solved, \(progress.totalStars) stars")
-                            Spacer()
-                        }
-                        divider
-                        Button(role: .destructive) {
-                            confirmingReset = true
-                        } label: {
-                            HStack {
-                                Text("Reset all progress")
-                                    .font(Theme.display(15, weight: .medium))
-                                Spacer()
-                                Image(systemName: "trash")
+                    group("Play") {
+                        VStack(spacing: 0) {
+                            row {
+                                Toggle(isOn: $settings.hapticsEnabled) {
+                                    label("Haptics", "A tap when a tile is picked up or lands")
+                                }
                             }
-                            .foregroundStyle(Color(red: 0.94, green: 0.45, blue: 0.45))
+                            Hairline()
+                            row {
+                                Toggle(isOn: $settings.showColorValues) {
+                                    label("Show colour values", "Prints each tile's hex value on the tile")
+                                }
+                            }
+                            Hairline()
+                            row {
+                                Toggle(isOn: $settings.showGridLabels) {
+                                    label("Announce positions", "Adds row and column numbers to VoiceOver labels")
+                                }
+                            }
+                        }
+                        .tint(Theme.accent)
+                        .onChange(of: settings.hapticsEnabled) { _, _ in settings.persist() }
+                        .onChange(of: settings.showColorValues) { _, _ in settings.persist() }
+                        .onChange(of: settings.showGridLabels) { _, _ in settings.persist() }
+                    }
+
+                    group("Progress") {
+                        VStack(spacing: 0) {
+                            row {
+                                HStack(spacing: Theme.Space.wide) {
+                                    Readout(value: "\(progress.completedCount)", label: "solved")
+                                    Readout(value: "\(progress.totalStars)", label: "stars")
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                            Hairline()
+                            row {
+                                Button(role: .destructive) {
+                                    confirmingReset = true
+                                } label: {
+                                    HStack {
+                                        Text("Reset all progress")
+                                            .font(Theme.text(15, weight: .medium))
+                                        Spacer()
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 13))
+                                    }
+                                    .foregroundStyle(Color(red: 0.80, green: 0.31, blue: 0.28))
+                                }
+                            }
                         }
                     }
 
                     Text("Levels are generated from their number, so the same level is the same puzzle on every device. Nothing is downloaded and nothing is sent anywhere.")
-                        .font(Theme.display(12, weight: .regular))
-                        .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 26)
-                        .padding(.top, 8)
+                        .font(Theme.text(12))
+                        .foregroundStyle(Theme.textTertiary)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 40)
+                .padding(.horizontal, Theme.Space.margin)
+                .padding(.bottom, Theme.Space.vast)
             }
         }
         .confirmationDialog("Reset all progress?", isPresented: $confirmingReset, titleVisibility: .visible) {
@@ -73,30 +93,65 @@ struct SettingsView: View {
         .onAppear { router.backdropPalette = DifficultyCurve.profile(for: 42).previewRamp }
     }
 
-    private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: 12) { content() }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Theme.surface.opacity(0.6))
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(Theme.hairline, lineWidth: 1))
-            )
+    /// A tracked micro-cap, a rule, and the rows underneath. No boxes: on a
+    /// quiet ground a card outline is louder than the text it contains.
+    private func group<Content: View>(_ title: String,
+                                      @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            MoodLabel(title)
+            Hairline(tint: Theme.hairlineStrong)
+            content()
+        }
     }
 
-    private var divider: some View {
-        Rectangle().fill(Theme.hairline).frame(height: 1)
+    private func row<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content().padding(.vertical, Theme.Space.snug)
     }
 
     private func label(_ title: String, _ subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(Theme.display(15, weight: .medium))
+                .font(Theme.text(15, weight: .medium))
                 .foregroundStyle(Theme.textPrimary)
             Text(subtitle)
-                .font(Theme.display(12, weight: .regular))
-                .foregroundStyle(Theme.textSecondary)
+                .font(Theme.text(12))
+                .foregroundStyle(Theme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+/// Three flush segments in a stadium — the moodboard's pill, doing a job.
+@MainActor
+private struct AppearancePicker: View {
+    @Binding var selection: Appearance
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Appearance.allCases) { option in
+                Button {
+                    withAnimation(Motion.tile) { selection = option }
+                } label: {
+                    Text(option.title)
+                        .font(Theme.text(14, weight: selection == option ? .semibold : .regular))
+                        .foregroundStyle(selection == option ? Theme.ground : Theme.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background {
+                            if selection == option {
+                                Capsule(style: .continuous).fill(Theme.textPrimary)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selection == option ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+        .padding(3)
+        .background {
+            Capsule(style: .continuous).strokeBorder(Theme.hairlineStrong, lineWidth: 1)
+        }
+        .accessibilityLabel("Appearance")
     }
 }

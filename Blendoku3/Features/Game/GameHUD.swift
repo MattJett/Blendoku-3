@@ -1,5 +1,10 @@
 import SwiftUI
 
+/// The game header.
+///
+/// Two rows and a rule. The rule is the progress bar — it fills as tiles land,
+/// so the board's completion is carried by the line that was already there
+/// rather than by a dial parked in the corner.
 @MainActor
 struct GameHUD: View {
     let controller: GameController
@@ -8,86 +13,72 @@ struct GameHUD: View {
     let onHint: () -> Void
 
     private var puzzle: Puzzle { controller.session.puzzle }
+    private var session: GameSession { controller.session }
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 12) {
-                CircleIconButton(systemName: "chevron.left", label: "Back", action: onBack)
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            HStack(alignment: .center, spacing: Theme.Space.snug) {
+                CircleIconButton(systemName: "arrow.left", label: "Back", action: onBack)
 
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
+                    MoodLabel("\(String(format: "%02d", puzzle.chapter.rawValue)) · \(puzzle.chapter.title)",
+                              size: 9)
                     Text("Level \(puzzle.level)")
-                        .font(Theme.display(19))
+                        .font(Theme.display(24))
+                        .kerning(-0.4)
                         .foregroundStyle(Theme.textPrimary)
-                    Text(puzzle.chapter.title)
-                        .font(Theme.display(12, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 Spacer(minLength: 0)
 
-                CircleIconButton(systemName: "lightbulb.fill", label: "Hint",
-                                 tint: Theme.warning, action: onHint)
+                CircleIconButton(systemName: "lightbulb", label: "Hint",
+                                 tint: Theme.accent, action: onHint)
                 CircleIconButton(systemName: "arrow.counterclockwise", label: "Start over",
                                  action: onReset)
             }
 
-            HStack(spacing: 10) {
-                pill(icon: "square.grid.2x2", text: "\(controller.session.remainingCount) left")
-                pill(icon: "arrow.left.arrow.right", text: "\(controller.session.moves) moves")
-                DifficultyPips(score: DifficultyCurve.profile(for: puzzle.level).difficultyScore)
+            HStack(spacing: Theme.Space.base) {
+                counter("\(session.remainingCount)", "left")
+                counter("\(session.moves)", "moves")
                 Spacer(minLength: 0)
-                ProgressRing(progress: controller.session.progress)
-                    .frame(width: 24, height: 24)
+                DifficultyTicks(score: DifficultyCurve.profile(for: puzzle.level).difficultyScore)
             }
+
+            FillRule(fraction: session.progress)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 6)
+        .padding(.horizontal, Theme.Space.margin)
+        .padding(.top, Theme.Space.hair)
     }
 
-    private func pill(icon: String, text: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon).font(.system(size: 10, weight: .semibold))
-            Text(text).font(Theme.display(12, weight: .medium))
+    private func counter(_ value: String, _ label: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text(value)
+                .font(Theme.mono(14, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(Theme.textPrimary)
+            MoodLabel(label, size: 9)
         }
-        .foregroundStyle(Theme.textSecondary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Capsule().fill(Theme.surface.opacity(0.6)))
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
     }
 }
 
-/// Five pips showing roughly how mean a level is.
+/// Five ticks showing roughly how mean a level is. Hairlines rather than
+/// filled pips — it is an annotation, not a score.
 @MainActor
-struct DifficultyPips: View {
+struct DifficultyTicks: View {
     let score: Double
 
     var body: some View {
         let filled = max(1, Int((score * 5).rounded(.up)))
         HStack(spacing: 3) {
             ForEach(0..<5, id: \.self) { index in
-                Capsule()
-                    .fill(index < filled ? Theme.accent.opacity(0.9) : Theme.textSecondary.opacity(0.3))
-                    .frame(width: 8, height: 3.5)
+                Rectangle()
+                    .fill(index < filled ? Theme.accent : Theme.hairlineStrong)
+                    .frame(width: 6, height: index < filled ? 8 : 2)
             }
         }
+        .frame(height: 8, alignment: .bottom)
         .accessibilityLabel("Difficulty \(filled) of 5")
-    }
-}
-
-@MainActor
-struct ProgressRing: View {
-    let progress: Double
-
-    var body: some View {
-        ZStack {
-            Circle().stroke(Theme.textSecondary.opacity(0.25), lineWidth: 3)
-            Circle()
-                .trim(from: 0, to: max(0.001, progress))
-                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(Motion.tile, value: progress)
-        }
-        .accessibilityLabel("\(Int(progress * 100)) percent placed")
     }
 }

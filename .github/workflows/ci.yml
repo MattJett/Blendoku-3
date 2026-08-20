@@ -98,6 +98,15 @@ jobs:
           shoot 02-level-07 -uiPreviewLevel 7
           shoot 03-level-84 -uiPreviewLevel 84
 
+          # Paper is a real design rather than a tint flip, so it gets
+          # photographed too — a light ground is where low-contrast hairlines
+          # and micro-caps fail, and that failure is invisible in dark mode.
+          # The ground is set through the app rather than `simctl ui
+          # appearance`, which exits zero on this runner without changing
+          # anything and silently photographs the wrong mode.
+          shoot 04-paper-home -uiPreviewAppearance paper
+          shoot 05-paper-level-84 -uiPreviewAppearance paper -uiPreviewLevel 84
+
       # The screenshots upload as an artifact, which serves a person fine. An
       # agent driving this repo cannot fetch them though — both the artifact
       # and the raw log redirect to blob storage that its egress proxy blocks —
@@ -116,7 +125,7 @@ jobs:
           if not shots:
               raise SystemExit("no screenshots to stitch")
 
-          column = 210
+          column = 168
           gap, label = 12, 22
           scaled = []
           for path in shots:
@@ -135,11 +144,11 @@ jobs:
 
           sheet.save("artifacts/contact-sheet.jpg", quality=76, optimize=True)
           buffer = io.BytesIO()
-          sheet.save(buffer, format="JPEG", quality=76, optimize=True)
+          sheet.save(buffer, format="JPEG", quality=70, optimize=True)
           blob = base64.b64encode(buffer.getvalue()).decode()
           print(f"BEGIN_SHEET {sheet.width}x{sheet.height} {len(blob)}b64")
-          for index in range(0, len(blob), 240):
-              print(blob[index:index + 240])
+          for index in range(0, len(blob), 480):
+              print(blob[index:index + 480])
           print("END_SHEET")
           PY
 

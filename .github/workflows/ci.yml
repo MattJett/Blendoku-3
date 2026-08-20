@@ -107,6 +107,11 @@ jobs:
           shoot 04-paper-home -uiPreviewAppearance paper
           shoot 05-paper-level-84 -uiPreviewAppearance paper -uiPreviewLevel 84
 
+          # The victory panel, on both grounds. It is the most sculpted surface
+          # in the app, so it is where a wrong shadow shows up first.
+          shoot 06-victory -uiPreviewLevel 3 -uiPreviewSolved 1
+          shoot 07-paper-victory -uiPreviewAppearance paper -uiPreviewLevel 3 -uiPreviewSolved 1
+
       # The screenshots upload as an artifact, which serves a person fine. An
       # agent driving this repo cannot fetch them though — both the artifact
       # and the raw log redirect to blob storage that its egress proxy blocks —

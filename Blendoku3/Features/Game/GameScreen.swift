@@ -90,22 +90,36 @@ struct GameScreen: View {
     }
 
     /// Tray tiles track the board's tile size so the two never look unrelated,
-    /// but stay tappable on a crowded level.
+    /// but stay tappable on a crowded level. A shade smaller than the board's,
+    /// because each one now carries a well around it — the recess is what
+    /// separates the swatches, so the swatch itself no longer has to.
     private func traySize(for controller: GameController) -> CGFloat {
         let count = controller.session.trayOrder.count
-        return count > 12 ? 40 : (count > 8 ? 44 : 50)
+        return count > 12 ? 38 : (count > 8 ? 42 : 46)
     }
 
     // MARK: - Lifecycle
 
     private func load() async {
         let puzzle = await catalog.puzzle(for: level)
-        controller = GameController(puzzle: puzzle)
+        let made = GameController(puzzle: puzzle)
+        controller = made
         showVictory = false
         record = nil
         router.backdropPalette = puzzle.paletteSwatches(count: 4)
         progress.markPlayed(level: level)
         catalog.prefetch(after: level)
+
+        // `-uiPreviewSolved 1` finishes the board on its own, so the victory
+        // panel can be photographed. It runs the real solve path rather than
+        // faking the overlay, which means the screenshot is of the same view
+        // the player gets — including the record it is built from.
+        if UserDefaults.standard.bool(forKey: "uiPreviewSolved") {
+            Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                made.session.solveCompletely()
+            }
+        }
     }
 
     private func replay(_ controller: GameController) {

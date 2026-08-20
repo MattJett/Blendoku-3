@@ -2,11 +2,16 @@ import SwiftUI
 
 /// What you get for solving one.
 ///
-/// A single sheet of glass over the finished board, with the solved palette
-/// blooming behind it. Confetti used to live here; it was the one moment in the
-/// app throwing colour around at random, which is exactly the judgement the
-/// rest of the game asks the player to make carefully. The board's own solve
-/// ripple already carries the celebration, in the colours they earned.
+/// A single sculpted panel: no border, no glass, no tint — the ground colour of
+/// whichever theme is running, made three-dimensional by nothing but a dark
+/// shadow falling one way and a light one falling the other. All white on
+/// paper, all black on ink.
+///
+/// Everything inside obeys the same rule. The stars are three bumps, and an
+/// unearned one is the same bump pressed *into* the panel rather than a dimmed
+/// copy of it. The palette is inlaid in a trough. That palette is the only
+/// colour in the frame, which is the point: it is the thing the player just
+/// built, and the monochrome around it is what lets it land.
 @MainActor
 struct VictoryOverlay: View {
     let puzzle: Puzzle
@@ -17,7 +22,6 @@ struct VictoryOverlay: View {
     let onLevels: () -> Void
 
     @State private var appeared = false
-    @State private var bloomed = false
 
     /// `paletteSwatches` hands back what it has, which for a degenerate puzzle
     /// could be a single colour. Everything below indexes into this, so pad it.
@@ -31,22 +35,15 @@ struct VictoryOverlay: View {
 
     var body: some View {
         ZStack {
-            Theme.ground.opacity(appeared ? 0.62 : 0)
+            // Nearly opaque, unlike the old glass. A sculpted surface only
+            // reads as sculpted when the thing behind it is the same colour —
+            // over a half-seen board it would look like a card lying on top of
+            // one instead of a shape pressed out of the page.
+            Theme.ground.opacity(appeared ? 0.94 : 0)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            GeometryReader { proxy in
-                PigmentOrb(colour: swatches[swatches.count / 2],
-                           diameter: max(proxy.size.width, proxy.size.height) * 1.1,
-                           intensity: 0.5)
-                    .scaleEffect(bloomed ? 1 : 0.35)
-                    .opacity(bloomed ? 1 : 0)
-                    .position(x: proxy.size.width / 2, y: proxy.size.height * 0.42)
-            }
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-
-            GlassPanel(radius: Theme.Radius.panel, padding: Theme.Space.wide) {
+            SoftPanel(radius: Theme.Radius.panel, padding: Theme.Space.wide, depth: 22) {
                 VStack(spacing: Theme.Space.base) {
                     VStack(spacing: 6) {
                         MoodLabel("Level \(puzzle.level) solved")
@@ -56,12 +53,13 @@ struct VictoryOverlay: View {
                             .foregroundStyle(Theme.textPrimary)
                     }
 
-                    DotRow(count: record.stars, tint: Theme.accent, size: 9,
-                           spokenLabel: "\(record.stars) of 3 stars")
+                    SoftPips(filled: record.stars, total: 3)
 
-                    // The palette they just rebuilt, shown as the one bar it
-                    // always wanted to be.
-                    SwatchBar(colours: swatches, height: 34, radius: 10)
+                    // The palette they just rebuilt, inlaid in the panel.
+                    SwatchBar(colours: swatches, height: 34, radius: 9)
+                        .padding(5)
+                        .softSurface(RoundedRectangle(cornerRadius: 15, style: .continuous),
+                                     depth: 7, pressed: true)
 
                     HStack(spacing: Theme.Space.base) {
                         Readout(value: "\(record.moves)", label: "moves", size: 17, alignment: .center)
@@ -72,7 +70,7 @@ struct VictoryOverlay: View {
                     VStack(spacing: Theme.Space.snug) {
                         if hasNextLevel {
                             Button("Next level") { onNext() }
-                                .buttonStyle(PillButtonStyle(chip: Color(swatches[swatches.count - 1])))
+                                .buttonStyle(PillButtonStyle())
                         }
                         HStack(spacing: Theme.Space.snug) {
                             Button("Replay") { onReplay() }
@@ -91,12 +89,35 @@ struct VictoryOverlay: View {
         }
         .onAppear {
             withAnimation(.spring(response: 0.52, dampingFraction: 0.82)) { appeared = true }
-            withAnimation(.easeOut(duration: 1.4)) { bloomed = true }
         }
     }
 
     private var timeText: String {
         let seconds = Int(record.seconds.rounded())
         return seconds >= 60 ? "\(seconds / 60)m \(seconds % 60)s" : "\(seconds)s"
+    }
+}
+
+/// A score shown as relief rather than as colour: an earned mark stands out of
+/// the panel, an unearned one is pressed into it. Reading it is the same act as
+/// reading the rest of the screen, which is what keeps the window monochrome
+/// without making it flat.
+@MainActor
+private struct SoftPips: View {
+    let filled: Int
+    let total: Int
+
+    var body: some View {
+        HStack(spacing: Theme.Space.snug) {
+            ForEach(0..<total, id: \.self) { index in
+                SoftSurface(shape: Circle(),
+                            depth: index < filled ? 7 : 5,
+                            pressed: index >= filled)
+                    .frame(width: 16, height: 16)
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(filled) of \(total) stars")
     }
 }

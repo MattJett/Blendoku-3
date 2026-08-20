@@ -7,140 +7,206 @@ struct HomeView: View {
 
     private var nextLevel: Int { progress.furthestUnlocked }
     private var palette: [BlendColor] { DifficultyCurve.profile(for: nextLevel).previewRamp }
+    private var started: Bool { progress.completedCount > 0 }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 24)
+        GeometryReader { proxy in
+            let strip = (proxy.size.width - EdgeRail.width) / CGFloat(BlendPreviewStrip.count)
 
-            VStack(spacing: 18) {
-                GradientWordmark(palette: palette)
-                    .staggeredAppear(index: 0, perItem: 0.08)
-
-                Text("Slide every tile until the colours blend evenly, end to end.")
-                    .font(Theme.display(15, weight: .medium))
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 44)
-                    .staggeredAppear(index: 1, perItem: 0.08)
-            }
-
-            Spacer(minLength: 20)
-
-            BlendPreviewStrip(palette: palette)
-                .frame(height: 104)
-                .padding(.horizontal, 34)
-                .staggeredAppear(index: 2, perItem: 0.08)
-
-            Spacer(minLength: 20)
-
-            VStack(spacing: 12) {
-                Button {
-                    router.push(.game(nextLevel))
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: progress.completedCount > 0 ? "play.fill" : "sparkles")
-                        Text(progress.completedCount > 0 ? "Continue · Level \(nextLevel)" : "Start playing")
-                    }
-                }
-                .buttonStyle(PrimaryButtonStyle(tint: Color(palette.last ?? palette[0])))
-                .staggeredAppear(index: 3, perItem: 0.06)
-
-                Button("Choose a level") { router.push(.levels) }
-                    .buttonStyle(GhostButtonStyle())
-                    .staggeredAppear(index: 4, perItem: 0.06)
-
-                HStack(spacing: 12) {
-                    Button("How to play") { router.push(.howToPlay) }
-                        .buttonStyle(GhostButtonStyle())
-                    Button {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top) {
+                    Spacer(minLength: 0)
+                    CircleIconButton(systemName: "slider.horizontal.3", label: "Settings") {
                         router.push(.settings)
-                    } label: {
-                        Image(systemName: "slider.horizontal.3")
                     }
-                    .buttonStyle(GhostButtonStyle(wide: false))
                 }
-                .staggeredAppear(index: 5, perItem: 0.06)
-            }
-            .padding(.horizontal, 28)
+                .padding(.horizontal, Theme.Space.margin)
+                .padding(.top, Theme.Space.tight)
+                .staggeredAppear(index: 0, perItem: 0.05)
 
-            ProgressSummary(completed: progress.completedCount,
-                            total: DifficultyCurve.levelCount,
-                            stars: progress.totalStars)
-                .padding(.top, 22)
-                .padding(.bottom, 12)
-                .staggeredAppear(index: 6, perItem: 0.06)
+                Spacer(minLength: Theme.Space.base)
+
+                masthead
+                    .padding(.horizontal, Theme.Space.margin)
+
+                Spacer(minLength: Theme.Space.base)
+
+                // Runs the full width of the device. The moment the game is
+                // built around is a gap closing in a continuous blend, so it is
+                // shown at the largest size the screen allows, with nothing
+                // framing it.
+                BlendPreviewStrip(palette: palette, side: strip)
+                    .padding(.leading, EdgeRail.width)
+                    .staggeredAppear(index: 3, perItem: 0.06, travel: 20)
+
+                Spacer(minLength: Theme.Space.base)
+
+                VStack(alignment: .leading, spacing: Theme.Space.base) {
+                    progressBlock
+                    actions
+                }
+                .padding(.horizontal, Theme.Space.margin)
+                .padding(.bottom, Theme.Space.snug)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+            .overlay(alignment: .leading) { EdgeRail(palette: palette) }
         }
         .onAppear { router.backdropPalette = palette }
     }
-}
 
-/// The title, masked with the palette of whatever level is up next.
-@MainActor
-private struct GradientWordmark: View {
-    let palette: [BlendColor]
-    @State private var sweep = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // MARK: - Masthead
 
-    var body: some View {
-        Text("BLENDOKU")
-            .font(.system(size: 44, weight: .heavy, design: .rounded))
-            .kerning(4)
-            .overlay {
-                LinearGradient(colors: palette.map { Color($0) } + palette.reversed().map { Color($0) },
-                               startPoint: sweep ? .topLeading : .bottomTrailing,
-                               endPoint: sweep ? .bottomTrailing : .topLeading)
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            MoodLabel("One hundred blends")
+                .staggeredAppear(index: 1, perItem: 0.06)
+
+            EmbossedTitle(text: "Blendoku")
+                .staggeredAppear(index: 1, perItem: 0.06)
+
+            Text("Slide every tile until the colours blend evenly, end to end.")
+                .font(Theme.text(15))
+                .foregroundStyle(Theme.textSecondary)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.trailing, Theme.Space.wide)
+                .staggeredAppear(index: 2, perItem: 0.06)
+        }
+    }
+
+    // MARK: - Progress
+
+    private var progressBlock: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            HStack(alignment: .bottom, spacing: Theme.Space.wide) {
+                Readout(value: "\(progress.completedCount)/\(DifficultyCurve.levelCount)",
+                        label: "solved", size: 26)
+                Readout(value: "\(progress.totalStars)", label: "stars", size: 26)
+                Spacer(minLength: 0)
+                Readout(value: String(format: "%03d", nextLevel), label: "up next",
+                        size: 26, alignment: .trailing)
             }
-            .mask {
-                Text("BLENDOKU")
-                    .font(.system(size: 44, weight: .heavy, design: .rounded))
-                    .kerning(4)
+
+            FillRule(fraction: Double(progress.completedCount)
+                     / Double(DifficultyCurve.levelCount))
+        }
+        .staggeredAppear(index: 4, perItem: 0.06)
+    }
+
+    // MARK: - Actions
+
+    private var actions: some View {
+        VStack(spacing: Theme.Space.snug) {
+            Button {
+                Haptics.play(.select)
+                router.push(.game(nextLevel))
+            } label: {
+                Text(started ? "Continue · Level \(nextLevel)" : "Start playing")
             }
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 7).repeatForever(autoreverses: true)) {
-                    sweep = true
-                }
+            .buttonStyle(PillButtonStyle(chip: Color(palette.last ?? palette[0])))
+            .staggeredAppear(index: 5, perItem: 0.05)
+
+            HStack(spacing: Theme.Space.snug) {
+                Button("Levels") { router.push(.levels) }
+                    .buttonStyle(OutlineButtonStyle())
+                Button("How to play") { router.push(.howToPlay) }
+                    .buttonStyle(OutlineButtonStyle())
             }
-            .accessibilityLabel("Blendoku")
+            .staggeredAppear(index: 6, perItem: 0.05)
+        }
     }
 }
 
-/// A six-tile blend that keeps taking one tile out and dropping it back.
+// MARK: - Title
+
+/// The wordmark, cut into the page rather than painted onto it.
 ///
-/// The tiles sit flush, exactly as they do on the board, so the front door
-/// shows the moment the whole game is built around: the gap closing and the
-/// gradient becoming continuous again.
+/// Two offset shadows — one light above, one dark below — give the letterforms
+/// a millimetre of relief. It is the moodboard's move for display type: depth
+/// carries the hierarchy so hue does not have to, which leaves every saturated
+/// pixel on this screen belonging to the puzzle.
 @MainActor
-private struct BlendPreviewStrip: View {
+struct EmbossedTitle: View {
+    let text: String
+    var size: CGFloat = 52
+
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Text(text)
+            .font(Theme.display(size, weight: .light))
+            .kerning(-1.4)
+            .foregroundStyle(Theme.textPrimary)
+            .shadow(color: .white.opacity(scheme == .dark ? 0.10 : 0.85), radius: 0.5, x: 0, y: -1)
+            .shadow(color: .black.opacity(scheme == .dark ? 0.55 : 0.16), radius: 1.5, x: 0, y: 2)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+// MARK: - Edge rail
+
+/// A four-point band of the next level's colour, flush to the left edge and
+/// running the whole height of the screen. It is the only piece of chrome that
+/// changes as you progress, and it is small enough to read as a bookmark.
+@MainActor
+struct EdgeRail: View {
     let palette: [BlendColor]
+
+    static let width: CGFloat = 4
+
+    var body: some View {
+        LinearGradient(colors: palette.map { Color($0) },
+                       startPoint: .top, endPoint: .bottom)
+            .frame(width: Self.width)
+            .overlay(Striation(spacing: 2, opacity: 0.10))
+            .ignoresSafeArea()
+            .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Preview strip
+
+/// Six tiles that keep taking one out and dropping it back.
+///
+/// They sit flush, exactly as they do on the board, and now run the full width
+/// of the device with square ends, so the strip reads as a band of colour the
+/// screen has been cut out of rather than as a widget sitting on it.
+@MainActor
+struct BlendPreviewStrip: View {
+    let palette: [BlendColor]
+    let side: CGFloat
 
     @State private var liftedIndex: Int?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let count = 6
+    static let count = 6
+    private var count: Int { Self.count }
 
     private var colours: [BlendColor] {
         guard let first = palette.first, let last = palette.last else { return [] }
         return (0..<count).map { BlendColor.mix(first, last, Double($0) / Double(count - 1)) }
     }
 
-    var body: some View {
-        GeometryReader { proxy in
-            let side = min(proxy.size.width / CGFloat(count), proxy.size.height * 0.58)
+    /// Headroom above the row for the tile that lifts out.
+    private var lift: CGFloat { side * 0.46 }
 
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
             HStack(spacing: 0) {
                 ForEach(Array(colours.enumerated()), id: \.offset) { index, colour in
-                    cell(index: index, colour: colour, side: side)
+                    cell(index: index, colour: colour)
                 }
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
+            .frame(height: side)
         }
-        .task { await cycle() }
+        .frame(height: side + lift + 10)
+        .onAppear { start() }
         .accessibilityHidden(true)
     }
 
     @ViewBuilder
-    private func cell(index: Int, colour: BlendColor, side: CGFloat) -> some View {
+    private func cell(index: Int, colour: BlendColor) -> some View {
         let lifted = liftedIndex == index
 
         ZStack {
@@ -148,80 +214,32 @@ private struct BlendPreviewStrip: View {
             SlotView(size: side, isHovered: false, isHinted: false)
                 .opacity(lifted ? 1 : 0)
 
-            TileView(colour: colour, size: side, role: .placed,
-                     corners: corners(for: index), bleed: 0.5)
-                .offset(y: lifted ? -side * 0.46 : 0)
-                .scaleEffect(lifted ? 1.06 : 1)
-                .shadow(color: .black.opacity(lifted ? 0.5 : 0),
-                        radius: lifted ? 14 : 0, y: lifted ? 9 : 0)
+            TileView(colour: colour, size: side, role: .placed, corners: [], bleed: 0.5)
+                .offset(y: lifted ? -lift : 0)
+                .shadow(color: .black.opacity(lifted ? 0.34 : 0),
+                        radius: lifted ? 16 : 0, y: lifted ? 10 : 0)
         }
         .frame(width: side, height: side)
         .zIndex(lifted ? 1 : 0)
     }
 
-    /// Only the two ends of the strip round, so the six read as one bar.
-    private func corners(for index: Int) -> TileCorners {
-        var rounded: TileCorners = []
-        if index == 0 { rounded.formUnion([.topLeading, .bottomLeading]) }
-        if index == count - 1 { rounded.formUnion([.topTrailing, .bottomTrailing]) }
-        return rounded
+    private func start() {
+        guard !reduceMotion else { return }
+        Task { await cycle() }
     }
 
     private func cycle() async {
-        guard !reduceMotion else { return }
         var step = 0
         while !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(1700))
             // Never the end tiles — a hole in the middle reads as a gap in the
             // blend, which is the thing worth showing.
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) {
+            withAnimation(Motion.settle) {
                 liftedIndex = 1 + step % (count - 2)
             }
             try? await Task.sleep(for: .milliseconds(950))
-            withAnimation(.spring(response: 0.44, dampingFraction: 0.70)) {
-                liftedIndex = nil
-            }
+            withAnimation(Motion.tile) { liftedIndex = nil }
             step += 1
         }
-    }
-}
-
-@MainActor
-private struct ProgressSummary: View {
-    let completed: Int
-    let total: Int
-    let stars: Int
-
-    var body: some View {
-        HStack(spacing: 22) {
-            stat(value: "\(completed)/\(total)", label: "solved")
-            Rectangle().fill(Theme.hairline).frame(width: 1, height: 26)
-            stat(value: "\(stars)", label: "stars", icon: "star.fill")
-        }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 12)
-        .background(
-            Capsule().fill(Theme.surface.opacity(0.55))
-                .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
-        )
-    }
-
-    private func stat(value: String, label: String, icon: String? = nil) -> some View {
-        VStack(spacing: 2) {
-            HStack(spacing: 4) {
-                if let icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.warning)
-                }
-                Text(value)
-                    .font(Theme.display(17))
-                    .foregroundStyle(Theme.textPrimary)
-            }
-            Text(label)
-                .font(Theme.display(11, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
-        }
-        .accessibilityElement(children: .combine)
     }
 }

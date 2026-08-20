@@ -51,15 +51,15 @@ struct GameScreen: View {
                     onHint: { controller.useHint() })
 
             BoardView(controller: controller, settings: settings, space: Self.space)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
+                .padding(.horizontal, Theme.Space.margin)
+                .padding(.vertical, Theme.Space.base)
                 .frame(maxHeight: .infinity)
                 .modifier(Shake(trigger: controller.shakeToken))
 
+            // Flush to the bottom edge — the shelf is the floor of the screen,
+            // not a card resting on it.
             TrayView(controller: controller, settings: settings, space: Self.space,
                      tileSize: traySize(for: controller))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 10)
         }
         .onPreferenceChange(BoardPlacementKey.self) { placement in
             Task { @MainActor in controller.drag.board = placement }
@@ -145,12 +145,12 @@ private struct LoadingBoard: View {
     @State private var phase = false
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 10) {
             ForEach(0..<3, id: \.self) { row in
-                HStack(spacing: 14) {
+                HStack(spacing: 10) {
                     ForEach(0..<4, id: \.self) { column in
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Theme.surfaceRaised.opacity(phase ? 0.55 : 0.25))
+                            .fill(Theme.textPrimary.opacity(phase ? 0.14 : 0.05))
                             .frame(width: 46, height: 46)
                             .animation(.easeInOut(duration: 0.9)
                                 .repeatForever(autoreverses: true)

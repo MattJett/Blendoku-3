@@ -17,6 +17,16 @@ struct TileCorners: OptionSet, Hashable, Sendable {
     static let all: TileCorners = [.topLeading, .topTrailing, .bottomLeading, .bottomTrailing]
 }
 
+/// Builds the tile shape for a given corner set.
+func tileShape(radius: CGFloat, corners: TileCorners) -> UnevenRoundedRectangle {
+    UnevenRoundedRectangle(
+        topLeadingRadius: corners.contains(.topLeading) ? radius : 0,
+        bottomLeadingRadius: corners.contains(.bottomLeading) ? radius : 0,
+        bottomTrailingRadius: corners.contains(.bottomTrailing) ? radius : 0,
+        topTrailingRadius: corners.contains(.topTrailing) ? radius : 0,
+        style: .continuous)
+}
+
 /// One coloured square. The same view draws clues, placed tiles and tray tiles.
 ///
 /// Board tiles are deliberately bare — no border, no shadow, no highlight —
@@ -45,15 +55,7 @@ struct TileView: View {
     private var isChip: Bool { role == .tray || lifted }
     private var drawnSize: CGFloat { size + bleed * 2 }
     private var radius: CGFloat { size * Theme.tileCornerRatio }
-
-    private var shape: UnevenRoundedRectangle {
-        UnevenRoundedRectangle(
-            topLeadingRadius: corners.contains(.topLeading) ? radius : 0,
-            bottomLeadingRadius: corners.contains(.bottomLeading) ? radius : 0,
-            bottomTrailingRadius: corners.contains(.bottomTrailing) ? radius : 0,
-            topTrailingRadius: corners.contains(.topTrailing) ? radius : 0,
-            style: .continuous)
-    }
+    private var shape: UnevenRoundedRectangle { tileShape(radius: radius, corners: corners) }
 
     var body: some View {
         shape
@@ -65,6 +67,11 @@ struct TileView: View {
             .frame(width: drawnSize, height: drawnSize)
             .compositingGroup()
             .shadow(color: .black.opacity(shadowOpacity), radius: shadowRadius, x: 0, y: shadowOffset)
+            // A tile in the air throws its own colour onto the page. Only ever
+            // when lifted: on the board it would bleed into the neighbour and
+            // corrupt the very comparison the player is making.
+            .shadow(color: lifted ? Color(colour).opacity(0.55) : .clear,
+                    radius: lifted ? size * 0.45 : 0)
             .opacity(dimmed ? 0.35 : 1)
     }
 
@@ -114,15 +121,43 @@ struct TileView: View {
     }
 
     private var shadowOpacity: Double {
-        lifted ? 0.45 : (role == .tray ? 0.22 : 0)
+        lifted ? 0.40 : (role == .tray ? 0.16 : 0)
     }
 
     private var shadowRadius: CGFloat {
-        lifted ? 16 : (role == .tray ? 4 : 0)
+        lifted ? 18 : (role == .tray ? 4 : 0)
     }
 
     private var shadowOffset: CGFloat {
-        lifted ? 12 : (role == .tray ? 2 : 0)
+        lifted ? 14 : (role == .tray ? 2 : 0)
+    }
+}
+
+/// The ring that marks the picked-up tile.
+///
+/// Two strokes, one dark and one light, and no hue at all. A tinted ring is
+/// unreadable against a tile that happens to share its hue — and on a board
+/// where every tile is a different colour, that case comes up constantly. Depth
+/// works on all of them.
+@MainActor
+struct SelectionRing: View {
+    let size: CGFloat
+    var corners: TileCorners = .all
+    let active: Bool
+
+    private var radius: CGFloat { size * Theme.tileCornerRatio }
+
+    var body: some View {
+        ZStack {
+            tileShape(radius: radius, corners: corners)
+                .strokeBorder(.black.opacity(0.55), lineWidth: 3.5)
+            tileShape(radius: radius, corners: corners)
+                .strokeBorder(.white.opacity(0.95), lineWidth: 1.5)
+        }
+        .opacity(active ? 1 : 0)
+        .scaleEffect(active ? 1 : 0.92)
+        .animation(Motion.tile, value: active)
+        .allowsHitTesting(false)
     }
 }
 
@@ -143,16 +178,15 @@ struct SlotView: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .fill(Color.white.opacity(isHovered ? 0.14 : 0.05))
+            .fill(isHovered ? Theme.slotFillHover : Theme.slotFill)
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(style: StrokeStyle(lineWidth: isHovered ? 2 : 1.2,
-                                                     dash: isHovered ? [] : [4, 4]))
-                    .foregroundStyle(isHovered ? Theme.accent : Color.white.opacity(0.24))
+                    .strokeBorder(isHovered ? Theme.accent : Theme.slotStroke,
+                                  lineWidth: isHovered ? 1.5 : 1)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Theme.warning, lineWidth: 2)
+                    .strokeBorder(Theme.accent, lineWidth: 1.5)
                     .opacity(isHinted ? 1 : 0)
             )
             .frame(width: innerSize, height: innerSize)

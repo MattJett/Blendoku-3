@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// What you get for solving one.
+///
+/// A single sheet of glass over the finished board, with the solved palette
+/// blooming behind it. Confetti used to live here; it was the one moment in the
+/// app throwing colour around at random, which is exactly the judgement the
+/// rest of the game asks the player to make carefully. The board's own solve
+/// ripple already carries the celebration, in the colours they earned.
 @MainActor
 struct VictoryOverlay: View {
     let puzzle: Puzzle
@@ -10,118 +17,86 @@ struct VictoryOverlay: View {
     let onLevels: () -> Void
 
     @State private var appeared = false
+    @State private var bloomed = false
+
+    /// `paletteSwatches` hands back what it has, which for a degenerate puzzle
+    /// could be a single colour. Everything below indexes into this, so pad it.
+    private var swatches: [BlendColor] {
+        let drawn = puzzle.paletteSwatches(count: 7)
+        guard let first = drawn.first else {
+            return Array(repeating: BlendColor(lightness: 0.6, chroma: 0.08, hue: 40), count: 7)
+        }
+        return drawn.count >= 2 ? drawn : Array(repeating: first, count: 7)
+    }
 
     var body: some View {
         ZStack {
-            Color.black.opacity(appeared ? 0.55 : 0)
+            Theme.ground.opacity(appeared ? 0.62 : 0)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            ConfettiBurst(palette: puzzle.paletteSwatches(count: 6), seed: puzzle.seed)
-                .ignoresSafeArea()
+            GeometryReader { proxy in
+                PigmentOrb(colour: swatches[swatches.count / 2],
+                           diameter: max(proxy.size.width, proxy.size.height) * 1.1,
+                           intensity: 0.5)
+                    .scaleEffect(bloomed ? 1 : 0.35)
+                    .opacity(bloomed ? 1 : 0)
+                    .position(x: proxy.size.width / 2, y: proxy.size.height * 0.42)
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
 
-            VStack(spacing: 18) {
-                VStack(spacing: 6) {
-                    Text("Blended")
-                        .font(Theme.display(30, weight: .heavy))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text("Level \(puzzle.level) · \(puzzle.chapter.title)")
-                        .font(Theme.display(13, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-
-                AnimatedStars(count: record.stars)
-
-                HStack(spacing: 8) {
-                    ForEach(Array(puzzle.paletteSwatches(count: 7).enumerated()), id: \.offset) { index, colour in
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color(colour))
-                            .frame(height: 26)
-                            .staggeredAppear(index: index, perItem: 0.05, travel: 8)
+            GlassPanel(radius: Theme.Radius.panel, padding: Theme.Space.wide) {
+                VStack(spacing: Theme.Space.base) {
+                    VStack(spacing: 6) {
+                        MoodLabel("Level \(puzzle.level) solved")
+                        Text("Blended")
+                            .font(Theme.display(40))
+                            .kerning(-0.8)
+                            .foregroundStyle(Theme.textPrimary)
                     }
-                }
-                .padding(.horizontal, 6)
 
-                HStack(spacing: 20) {
-                    stat("\(record.moves)", "moves")
-                    stat(timeText, "time")
-                    stat("\(puzzle.slots.count)", "tiles")
-                }
+                    DotRow(count: record.stars, tint: Theme.accent, size: 9,
+                           spokenLabel: "\(record.stars) of 3 stars")
 
-                VStack(spacing: 10) {
-                    if hasNextLevel {
-                        Button("Next level") { onNext() }
-                            .buttonStyle(PrimaryButtonStyle(
-                                tint: Color(puzzle.paletteSwatches(count: 3).last ?? BlendColor(lightness: 0.7, chroma: 0.1, hue: 200))))
+                    // The palette they just rebuilt, shown as the one bar it
+                    // always wanted to be.
+                    SwatchBar(colours: swatches, height: 34, radius: 10)
+
+                    HStack(spacing: Theme.Space.base) {
+                        Readout(value: "\(record.moves)", label: "moves", size: 17, alignment: .center)
+                        Readout(value: timeText, label: "time", size: 17, alignment: .center)
+                        Readout(value: "\(puzzle.slots.count)", label: "tiles", size: 17, alignment: .center)
                     }
-                    HStack(spacing: 10) {
-                        Button("Replay") { onReplay() }
-                            .buttonStyle(GhostButtonStyle())
-                        Button("Levels") { onLevels() }
-                            .buttonStyle(GhostButtonStyle())
+
+                    VStack(spacing: Theme.Space.snug) {
+                        if hasNextLevel {
+                            Button("Next level") { onNext() }
+                                .buttonStyle(PillButtonStyle(chip: Color(swatches[swatches.count - 1])))
+                        }
+                        HStack(spacing: Theme.Space.snug) {
+                            Button("Replay") { onReplay() }
+                                .buttonStyle(OutlineButtonStyle())
+                            Button("Levels") { onLevels() }
+                                .buttonStyle(OutlineButtonStyle())
+                        }
                     }
+                    .padding(.top, Theme.Space.hair)
                 }
             }
-            .padding(24)
-            .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Theme.surface)
-                    .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .strokeBorder(Theme.hairline, lineWidth: 1))
-                    .shadow(color: .black.opacity(0.5), radius: 30, y: 16)
-            )
-            .padding(.horizontal, 28)
-            .scaleEffect(appeared ? 1 : 0.9)
+            .padding(.horizontal, Theme.Space.margin)
+            .scaleEffect(appeared ? 1 : 0.94)
             .opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : 28)
+            .offset(y: appeared ? 0 : 24)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.78)) { appeared = true }
+            withAnimation(.spring(response: 0.52, dampingFraction: 0.82)) { appeared = true }
+            withAnimation(.easeOut(duration: 1.4)) { bloomed = true }
         }
     }
 
     private var timeText: String {
         let seconds = Int(record.seconds.rounded())
         return seconds >= 60 ? "\(seconds / 60)m \(seconds % 60)s" : "\(seconds)s"
-    }
-
-    private func stat(_ value: String, _ label: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(Theme.display(19))
-                .foregroundStyle(Theme.textPrimary)
-            Text(label)
-                .font(Theme.display(11, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-@MainActor
-private struct AnimatedStars: View {
-    let count: Int
-    @State private var shown = 0
-
-    private func pop() async {
-        for index in 0..<3 {
-            try? await Task.sleep(for: .milliseconds(index == 0 ? 180 : 130))
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.5)) { shown = index + 1 }
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ForEach(0..<3, id: \.self) { index in
-                Image(systemName: index < count ? "star.fill" : "star")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(index < count ? Theme.warning : Theme.textSecondary.opacity(0.35))
-                    .scaleEffect(index < shown ? 1 : 0.4)
-                    .opacity(index < shown ? 1 : 0.25)
-                    .rotationEffect(.degrees(index < shown ? 0 : -35))
-            }
-        }
-        .task { await pop() }
-        .accessibilityLabel("\(count) of 3 stars")
     }
 }

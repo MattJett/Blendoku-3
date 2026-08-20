@@ -6,14 +6,14 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            AuroraBackground(palette: router.backdropPalette)
+            PigmentField(palette: router.backdropPalette)
 
             screen
                 .id(router.current)
                 .transition(.screen(forward: router.isMovingForward))
         }
         .animation(Motion.screen, value: router.current)
-        .background(Theme.backdrop)
+        .background(Theme.ground)
     }
 
     @ViewBuilder
@@ -33,35 +33,46 @@ struct RootView: View {
     }
 }
 
-/// Header shared by the secondary screens: a back chevron and a title.
+/// The header on every screen below the home screen.
+///
+/// Editorial rather than chrome: the control sits on its own line, the title is
+/// set large and light underneath it with a tracked micro-cap above, and a
+/// single hairline closes the block off. Nothing is boxed.
 @MainActor
 struct ScreenHeader: View {
     let title: String
+    var eyebrow: String?
     var subtitle: String?
     var trailing: AnyView?
     let onBack: () -> Void
 
     var body: some View {
-        HStack(spacing: 14) {
-            CircleIconButton(systemName: "chevron.left", label: "Back", action: onBack)
+        VStack(alignment: .leading, spacing: Theme.Space.snug) {
+            HStack(spacing: Theme.Space.snug) {
+                CircleIconButton(systemName: "arrow.left", label: "Back", action: onBack)
+                Spacer(minLength: 0)
+                if let trailing { trailing }
+            }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 5) {
+                if let eyebrow {
+                    MoodLabel(eyebrow)
+                }
                 Text(title)
-                    .font(Theme.display(22))
+                    .font(Theme.display(34))
+                    .kerning(-0.6)
                     .foregroundStyle(Theme.textPrimary)
                 if let subtitle {
                     Text(subtitle)
-                        .font(Theme.display(13, weight: .medium))
+                        .font(Theme.text(13))
                         .foregroundStyle(Theme.textSecondary)
                 }
             }
 
-            Spacer(minLength: 0)
-
-            if let trailing { trailing }
+            Hairline()
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        .padding(.horizontal, Theme.Space.margin)
+        .padding(.top, Theme.Space.tight)
+        .padding(.bottom, Theme.Space.base)
     }
 }

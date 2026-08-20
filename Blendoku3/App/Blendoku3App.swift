@@ -15,7 +15,7 @@ struct Blendoku3App: App {
                 .environment(catalog)
                 .environment(progress)
                 .environment(settings)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(settings.appearance.colorScheme)
                 .onAppear {
                     Haptics.isEnabled = settings.hapticsEnabled
                     openPreviewLevelIfAsked()

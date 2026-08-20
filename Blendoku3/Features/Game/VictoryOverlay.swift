@@ -112,21 +112,28 @@ private struct SoftPips: View {
     let filled: Int
     let total: Int
 
-    private let cell: CGFloat = 22
+    private let cell: CGFloat = 20
 
     var body: some View {
         HStack(spacing: Theme.Space.snug) {
             ForEach(0..<total, id: \.self) { index in
                 let earned = index < filled
                 SoftSurface(shape: Circle(),
-                            depth: earned ? 9 : 6,
+                            depth: earned ? 8 : 5,
                             pressed: !earned)
-                    .frame(width: earned ? cell : cell * 0.64,
-                           height: earned ? cell : cell * 0.64)
+                    .frame(width: earned ? cell : cell * 0.6,
+                           height: earned ? cell : cell * 0.6)
                     .frame(width: cell, height: cell)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        // The marks sit in a recessed track. On ink the highlight that makes a
+        // bump a bump is only a few points brighter than the panel, which is
+        // plenty across a button and nothing at all across a twenty-point
+        // circle; dropping the whole row into a trough gives the bumps a darker
+        // field to stand out of, and costs no colour to do it.
+        .softSurface(Capsule(style: .continuous), depth: 7, pressed: true)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(filled) of \(total) stars")
     }

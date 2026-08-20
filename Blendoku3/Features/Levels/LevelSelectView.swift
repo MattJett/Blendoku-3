@@ -160,8 +160,9 @@ struct LevelSwatch: View {
                         LinearGradient(colors: ramp.map { Color($0) },
                                        startPoint: .topLeading, endPoint: .bottomTrailing))
                 } else {
-                    shape.fill(Theme.sunken)
-                    shape.strokeBorder(Theme.hairline, lineWidth: 1)
+                    // A locked level is a hole in the matrix, so it is drawn as
+                    // one: the ground with its lighting turned inward.
+                    SoftSurface(shape: shape, depth: side * 0.16, pressed: true)
                 }
 
                 VStack(spacing: 4) {

@@ -36,6 +36,9 @@ struct Blendoku3App: App {
     ///     xcrun simctl launch <device> com.mattjett.blendoku3 \
     ///         -uiPreviewLevel 42 -uiPreviewAppearance paper
     ///
+    /// `GameScreen` reads one more of these, `-uiPreviewSolved`, which finishes
+    /// the board so the victory panel can be photographed.
+    ///
     /// Driving the ground through the app rather than `simctl ui appearance`
     /// is deliberate: that command exits zero on the runner without changing
     /// anything, so a screenshot taken after it silently photographs the wrong

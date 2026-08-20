@@ -113,31 +113,91 @@ struct Striation: View {
 
 // MARK: - Surfaces
 
-/// A frosted panel over whatever is behind it.
+/// The one surface in the app.
 ///
-/// The moodboard's dominant container: a large, softly-rounded sheet of glass
-/// with a single hairline edge and no shadow to speak of.
+/// Every panel, button, shelf and well is this: a shape filled with *exactly
+/// the ground colour behind it*, made visible only by a dark shadow falling one
+/// way and a light one falling the other. Nothing is outlined. An edge here is
+/// a lighting result, which is why the whole chrome can be a single value in
+/// each theme — all white on paper, all black on ink — and still have a legible
+/// hierarchy of depth.
+///
+/// `pressed` flips the lighting inside the shape instead of outside it, which
+/// is what turns a button into a hole. Because it is the same two shadows
+/// either way, a press is a continuous animation between the two states rather
+/// than a swap between two different looks.
 @MainActor
-struct GlassPanel<Content: View>: View {
+struct SoftSurface<S: Shape>: View {
+    var shape: S
+    /// How far the surface stands off the page. Also drives the offset, so one
+    /// number controls the whole extrusion.
+    var depth: CGFloat = 9
+    var pressed = false
+    var fill: Color = Theme.ground
+    /// An optional wash of colour for transient state — a live drop target, a
+    /// hint. State that has to be *noticed* cannot be carried by depth alone.
+    var glow: Color? = nil
+
+    private var offset: CGFloat { depth * 0.58 }
+
+    var body: some View {
+        Group {
+            if pressed {
+                shape.fill(
+                    fill
+                        .shadow(.inner(color: Theme.shadowDeep, radius: depth * 0.72,
+                                       x: offset, y: offset))
+                        .shadow(.inner(color: Theme.shadowLift, radius: depth * 0.72,
+                                       x: -offset, y: -offset))
+                )
+            } else {
+                shape
+                    .fill(fill)
+                    .compositingGroup()
+                    .shadow(color: Theme.shadowDeep, radius: depth, x: offset, y: offset)
+                    .shadow(color: Theme.shadowLift, radius: depth, x: -offset, y: -offset)
+            }
+        }
+        .overlay {
+            if let glow {
+                shape.fill(glow.opacity(0.18))
+            }
+        }
+        .animation(Motion.quick, value: pressed)
+        .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    /// Puts a soft surface behind this view. The shape is passed in rather than
+    /// assumed, because the shelf, the pills and the wells all want different
+    /// ones and every single one of them is drawn the same way.
+    @MainActor
+    func softSurface<S: Shape>(_ shape: S,
+                               depth: CGFloat = 9,
+                               pressed: Bool = false,
+                               fill: Color = Theme.ground,
+                               glow: Color? = nil) -> some View {
+        background {
+            SoftSurface(shape: shape, depth: depth, pressed: pressed,
+                        fill: fill, glow: glow)
+        }
+    }
+}
+
+/// A sheet raised off the page. The app's dominant container.
+@MainActor
+struct SoftPanel<Content: View>: View {
     var radius: CGFloat = Theme.Radius.panel
     var padding: CGFloat = Theme.Space.base
+    var depth: CGFloat = 18
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
             .padding(padding)
-            .background {
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .fill(Theme.veil.opacity(0.42))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .strokeBorder(Theme.hairline, lineWidth: 1)
-                    }
-            }
+            .softSurface(RoundedRectangle(cornerRadius: radius, style: .continuous),
+                         depth: depth)
     }
 }
 

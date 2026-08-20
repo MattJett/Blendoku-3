@@ -29,10 +29,17 @@ func tileShape(radius: CGFloat, corners: TileCorners) -> UnevenRoundedRectangle 
 
 /// One coloured square. The same view draws clues, placed tiles and tray tiles.
 ///
-/// Board tiles are deliberately bare — no border, no shadow, no highlight —
-/// because every one of those draws a line between neighbours and turns a
-/// gradient back into a row of swatches. Tray tiles keep the chip styling,
-/// since there they really are separate objects.
+/// **Nothing is ever painted on the face.** No border, no top-light, no inner
+/// shading — in any role, anywhere in the app. On the board that is because
+/// each of those draws a line between neighbours and turns a gradient back into
+/// a row of swatches. In the tray it is because a tile there is a *promise*
+/// about what the board will look like, and a 16% white top-light is a lie: it
+/// lifts the swatch a visible step away from the colour that actually lands.
+/// The tray reads the true colour now, so what you pick is what you get.
+///
+/// Depth still exists, it just lives outside the tile — the tray tile sits in a
+/// well cut into the shelf, and a lifted tile throws a shadow onto the page.
+/// Neither touches the pixels being judged.
 @MainActor
 struct TileView: View {
     enum Role {
@@ -52,7 +59,6 @@ struct TileView: View {
     /// leaving a hairline of background where the blend should be seamless.
     var bleed: CGFloat = 0
 
-    private var isChip: Bool { role == .tray || lifted }
     private var drawnSize: CGFloat { size + bleed * 2 }
     private var radius: CGFloat { size * Theme.tileCornerRatio }
     private var shape: UnevenRoundedRectangle { tileShape(radius: radius, corners: corners) }
@@ -60,8 +66,6 @@ struct TileView: View {
     var body: some View {
         shape
             .fill(Color(colour))
-            .overlay(highlight)
-            .overlay(border)
             .overlay(clueMark)
             .overlay(valueLabel)
             .frame(width: drawnSize, height: drawnSize)
@@ -73,25 +77,6 @@ struct TileView: View {
             .shadow(color: lifted ? Color(colour).opacity(0.55) : .clear,
                     radius: lifted ? size * 0.45 : 0)
             .opacity(dimmed ? 0.35 : 1)
-    }
-
-    /// Only chips get the top-light. On the board it would draw a visible seam
-    /// at every tile boundary.
-    @ViewBuilder
-    private var highlight: some View {
-        if isChip {
-            shape
-                .fill(LinearGradient(colors: [.white.opacity(0.16), .clear],
-                                     startPoint: .top, endPoint: .center))
-                .blendMode(.plusLighter)
-        }
-    }
-
-    @ViewBuilder
-    private var border: some View {
-        if isChip {
-            shape.strokeBorder(.white.opacity(0.14), lineWidth: 1)
-        }
     }
 
     /// Fixed tiles need to be tellable from placed ones, but an inner ring or a
@@ -120,17 +105,13 @@ struct TileView: View {
         }
     }
 
-    private var shadowOpacity: Double {
-        lifted ? 0.40 : (role == .tray ? 0.16 : 0)
-    }
-
-    private var shadowRadius: CGFloat {
-        lifted ? 18 : (role == .tray ? 4 : 0)
-    }
-
-    private var shadowOffset: CGFloat {
-        lifted ? 14 : (role == .tray ? 2 : 0)
-    }
+    // A resting tile casts nothing, in either role. On the board a shadow would
+    // fall across the neighbour it is being compared to; in the tray the well
+    // behind it already carries the depth, and stacking a second shadow on top
+    // would darken the swatch's own edges.
+    private var shadowOpacity: Double { lifted ? 0.40 : 0 }
+    private var shadowRadius: CGFloat { lifted ? 18 : 0 }
+    private var shadowOffset: CGFloat { lifted ? 14 : 0 }
 }
 
 /// The ring that marks the picked-up tile.
@@ -161,7 +142,9 @@ struct SelectionRing: View {
     }
 }
 
-/// The hole a tile goes into.
+/// The hole a tile goes into. Literally a hole: the ground colour with its
+/// lighting turned inward, so the empty cells read as pressed into the page
+/// rather than as boxes drawn on top of it.
 ///
 /// Inset inside its cell rather than filling it, so the tiles around it still
 /// meet the cell boundary and the shape reads as a solid band with a gap
@@ -172,23 +155,34 @@ struct SlotView: View {
     var isHovered: Bool
     var isHinted: Bool
 
+    /// Soft UI trades contrast for calm, which is the wrong trade for someone
+    /// who has asked the system for more of it. At increased contrast the wells
+    /// get their outline back.
+    @Environment(\.colorSchemeContrast) private var contrast
+
     private var inset: CGFloat { size * 0.10 }
     private var innerSize: CGFloat { size - inset * 2 }
     private var radius: CGFloat { innerSize * Theme.tileCornerRatio }
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+    }
+
+    private var glow: Color? {
+        if isHovered { return Theme.accent }
+        if isHinted { return Theme.accent }
+        return nil
+    }
 
     var body: some View {
-        RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .fill(isHovered ? Theme.slotFillHover : Theme.slotFill)
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(isHovered ? Theme.accent : Theme.slotStroke,
-                                  lineWidth: isHovered ? 1.5 : 1)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Theme.accent, lineWidth: 1.5)
-                    .opacity(isHinted ? 1 : 0)
-            )
+        SoftSurface(shape: shape,
+                    depth: max(4, size * 0.13),
+                    pressed: true,
+                    glow: glow)
+            .overlay {
+                if contrast == .increased {
+                    shape.strokeBorder(Theme.slotStroke, lineWidth: 1)
+                }
+            }
             .frame(width: innerSize, height: innerSize)
             // Scaling the inset hole keeps the highlight inside its own cell,
             // so hovering never overlaps the tile next door.

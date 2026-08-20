@@ -1,13 +1,18 @@
 import SwiftUI
 
-/// The primary action. A high-contrast stadium — the moodboard's one
-/// unambiguous "press this", and the only element that fully inverts the
-/// ground.
+/// The primary action.
+///
+/// Soft UI has no filled buttons, because a fill is a second colour and the
+/// whole point is that there is only one. What marks this as the primary
+/// action instead is that it stands *further* off the page than anything
+/// around it, and that its label is set at full contrast. Pressing it drives
+/// the extrusion inward, so the button really goes down under the finger
+/// rather than dimming and shrinking in place.
 @MainActor
 struct PillButtonStyle: ButtonStyle {
     var wide = true
-    /// A small flush chip of colour on the leading edge, used on the home
-    /// screen to tie the button to the level it opens.
+    /// A small chip of colour on the leading edge, used to tie a button to the
+    /// level it opens. The one place a chrome control carries a hue.
     var chip: Color?
 
     func makeBody(configuration: Configuration) -> some View {
@@ -20,19 +25,18 @@ struct PillButtonStyle: ButtonStyle {
             configuration.label
         }
         .font(Theme.text(16, weight: .semibold))
-        .foregroundStyle(Theme.ground)
+        .foregroundStyle(Theme.textPrimary)
         .padding(.vertical, 17)
         .padding(.horizontal, Theme.Space.wide)
         .frame(maxWidth: wide ? .infinity : nil)
-        .background(Capsule(style: .continuous).fill(Theme.textPrimary))
-        .opacity(configuration.isPressed ? 0.82 : 1)
-        .scaleEffect(configuration.isPressed ? 0.985 : 1)
-        .animation(Motion.quick, value: configuration.isPressed)
+        .softSurface(Capsule(style: .continuous),
+                     depth: 11,
+                     pressed: configuration.isPressed)
     }
 }
 
-/// A secondary action. Nothing but a hairline stadium; it recedes until you
-/// look for it.
+/// A secondary action. The same surface, standing off the page about half as
+/// far — near enough to the ground that it recedes until you look for it.
 @MainActor
 struct OutlineButtonStyle: ButtonStyle {
     var wide = true
@@ -44,18 +48,13 @@ struct OutlineButtonStyle: ButtonStyle {
             .padding(.vertical, 15)
             .padding(.horizontal, Theme.Space.base)
             .frame(maxWidth: wide ? .infinity : nil)
-            .background {
-                Capsule(style: .continuous)
-                    .strokeBorder(Theme.hairlineStrong, lineWidth: 1)
-                    .background(Capsule(style: .continuous)
-                        .fill(Theme.textPrimary.opacity(configuration.isPressed ? 0.06 : 0)))
-            }
-            .animation(Motion.quick, value: configuration.isPressed)
+            .softSurface(Capsule(style: .continuous),
+                         depth: 6,
+                         pressed: configuration.isPressed)
     }
 }
 
-/// Small round icon button used across the HUD. Hairline only — on a quiet
-/// ground a filled circle reads as loud as a coloured tile.
+/// Small round icon button used across the HUD.
 @MainActor
 struct CircleIconButton: View {
     let systemName: String
@@ -69,20 +68,17 @@ struct CircleIconButton: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: 40, height: 40)
-                .background(Circle().strokeBorder(Theme.hairlineStrong, lineWidth: 1))
-                .contentShape(Circle())
         }
-        .buttonStyle(PressScaleStyle())
+        .buttonStyle(SoftCircleStyle())
         .accessibilityLabel(label)
     }
 }
 
 @MainActor
-struct PressScaleStyle: ButtonStyle {
+struct SoftCircleStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.92 : 1)
-            .opacity(configuration.isPressed ? 0.6 : 1)
-            .animation(Motion.quick, value: configuration.isPressed)
+            .contentShape(Circle())
+            .softSurface(Circle(), depth: 7, pressed: configuration.isPressed)
     }
 }

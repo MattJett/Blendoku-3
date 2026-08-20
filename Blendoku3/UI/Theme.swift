@@ -28,19 +28,34 @@ enum Theme {
 
     // MARK: - Ground
 
-    /// The page itself. Warm near-white, or near-black.
+    /// The page itself, and every surface on it. Warm near-white, or
+    /// near-black. There is deliberately only one — panels, shelves, buttons
+    /// and wells are all this exact colour, and are told apart by their
+    /// lighting alone. The old tinted variants (`raised`, `sunken`, `veil`)
+    /// are gone with the borders they used to accompany.
     static let ground = dynamic(light: 0xEAE7E2, dark: 0x0D0F12)
-    /// A shade deeper than the ground, for wells and insets.
-    static let sunken = dynamic(light: 0xDEDAD3, dark: 0x08090B)
-    /// A shade lighter, for rails and panels that need to separate.
-    static let raised = dynamic(light: 0xF3F1ED, dark: 0x171A1F)
-    /// Translucent fill for glass panels sitting over colour.
-    static let veil = dynamic(light: 0xFFFFFF, dark: 0x1B1F25)
 
     // MARK: - Line
 
     static let hairline = dynamic(light: 0x1A1917, dark: 0xF0EEEA).opacity(0.12)
     static let hairlineStrong = dynamic(light: 0x1A1917, dark: 0xF0EEEA).opacity(0.26)
+
+    // MARK: - Depth
+
+    /// Soft-UI depth. Every panel, button and well in the app is the *same
+    /// colour as the ground it sits on*; what separates it is a dark shadow
+    /// falling one way and a light one falling the other. There are no borders
+    /// anywhere in the chrome — an edge is a lighting result, not a drawn line.
+    ///
+    /// The alphas are baked into the colours rather than applied at the call
+    /// site, because the two grounds need very different ones: on paper the
+    /// highlight is nearly opaque white and the shadow is gentle, while on ink
+    /// the shadow goes to true black and the highlight has to stay faint or the
+    /// surface turns to plastic.
+    static let shadowDeep = dynamic(light: 0x9E978C, lightAlpha: 0.55,
+                                    dark: 0x000000, darkAlpha: 0.66)
+    static let shadowLift = dynamic(light: 0xFFFFFF, lightAlpha: 0.92,
+                                    dark: 0x30363F, darkAlpha: 0.42)
 
     // MARK: - Type
 
@@ -60,11 +75,9 @@ enum Theme {
     // MARK: - Board
 
     static let tileCornerRatio: CGFloat = 0.20
-    /// The empty slot. A well cut into the ground rather than a floating box —
-    /// the tiles around it stay flush, so the run still reads as one bar.
-    static let slotFill = dynamic(light: 0x1A1917, dark: 0x000000).opacity(0.07)
-    static let slotFillHover = dynamic(light: 0x1A1917, dark: 0x000000).opacity(0.16)
-    static let slotStroke = dynamic(light: 0x1A1917, dark: 0xF0EEEA).opacity(0.20)
+    /// The outline an empty slot gets back when the system asks for increased
+    /// contrast. Depth alone carries it the rest of the time.
+    static let slotStroke = dynamic(light: 0x1A1917, dark: 0xF0EEEA).opacity(0.32)
 
     // MARK: - Geometry
 
@@ -110,18 +123,25 @@ enum Theme {
     // MARK: - Helpers
 
     private static func dynamic(light: UInt32, dark: UInt32) -> Color {
+        dynamic(light: light, lightAlpha: 1, dark: dark, darkAlpha: 1)
+    }
+
+    private static func dynamic(light: UInt32, lightAlpha: CGFloat,
+                                dark: UInt32, darkAlpha: CGFloat) -> Color {
         Color(uiColor: UIColor { traits in
-            UIColor(rgb: traits.userInterfaceStyle == .dark ? dark : light)
+            let isDark = traits.userInterfaceStyle == .dark
+            return UIColor(rgb: isDark ? dark : light,
+                           alpha: isDark ? darkAlpha : lightAlpha)
         })
     }
 }
 
 private extension UIColor {
-    convenience init(rgb: UInt32) {
+    convenience init(rgb: UInt32, alpha: CGFloat = 1) {
         self.init(red: CGFloat((rgb >> 16) & 0xFF) / 255,
                   green: CGFloat((rgb >> 8) & 0xFF) / 255,
                   blue: CGFloat(rgb & 0xFF) / 255,
-                  alpha: 1)
+                  alpha: alpha)
     }
 }
 

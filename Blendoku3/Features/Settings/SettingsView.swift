@@ -134,12 +134,14 @@ private struct AppearancePicker: View {
                 } label: {
                     Text(option.title)
                         .font(Theme.text(14, weight: selection == option ? .semibold : .regular))
-                        .foregroundStyle(selection == option ? Theme.ground : Theme.textSecondary)
+                        .foregroundStyle(selection == option ? Theme.textPrimary : Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 11)
                         .background {
+                            // The chosen option is the one thing standing up out
+                            // of the trough; the others stay flush with it.
                             if selection == option {
-                                Capsule(style: .continuous).fill(Theme.textPrimary)
+                                SoftSurface(shape: Capsule(style: .continuous), depth: 7)
                             }
                         }
                         .contentShape(Capsule())
@@ -148,10 +150,8 @@ private struct AppearancePicker: View {
                 .accessibilityAddTraits(selection == option ? [.isButton, .isSelected] : .isButton)
             }
         }
-        .padding(3)
-        .background {
-            Capsule(style: .continuous).strokeBorder(Theme.hairlineStrong, lineWidth: 1)
-        }
+        .padding(5)
+        .softSurface(Capsule(style: .continuous), depth: 6, pressed: true)
         .accessibilityLabel("Appearance")
     }
 }

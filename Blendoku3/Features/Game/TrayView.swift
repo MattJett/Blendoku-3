@@ -40,9 +40,30 @@ struct TrayView: View {
                     .foregroundStyle(Theme.textTertiary)
             }
 
-            FlowLayout(spacing: 7, rowSpacing: 7) {
-                ForEach(session.trayOrder) { tile in
-                    slot(for: tile)
+            // A wrapping flow is right until the late levels, where thirty-odd
+            // tiles would stack five rows deep and leave the board no room. Past
+            // that the shelf becomes two fixed rows that scroll *sideways* —
+            // deliberately sideways, because the gesture that matters here is
+            // dragging a tile up to the board, and a vertical scroller would
+            // swallow it.
+            if session.trayOrder.count > 14 {
+                ScrollView(.horizontal) {
+                    LazyHGrid(rows: Array(repeating: GridItem(.fixed(wellSide), spacing: 7),
+                                          count: 2),
+                              spacing: 7) {
+                        ForEach(session.trayOrder) { tile in
+                            slot(for: tile)
+                        }
+                    }
+                    .padding(.trailing, Theme.Space.base)
+                }
+                .scrollIndicators(.hidden)
+                .frame(height: wellSide * 2 + 7)
+            } else {
+                FlowLayout(spacing: 7, rowSpacing: 7) {
+                    ForEach(session.trayOrder) { tile in
+                        slot(for: tile)
+                    }
                 }
             }
         }
@@ -73,8 +94,10 @@ struct TrayView: View {
 
     /// The recess every swatch sits in, and the shape a taken one leaves behind.
     private var wellPad: CGFloat { 5 }
+    /// The full footprint of one swatch: the tile plus the recess around it.
+    private var wellSide: CGFloat { tileSize + wellPad * 2 }
     private var wellShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: (tileSize + wellPad * 2) * Theme.tileCornerRatio,
+        RoundedRectangle(cornerRadius: wellSide * Theme.tileCornerRatio,
                          style: .continuous)
     }
 
@@ -99,7 +122,7 @@ struct TrayView: View {
         } else {
             // The hole a taken tile left: the same well, now empty.
             SoftSurface(shape: wellShape, depth: 6, pressed: true)
-                .frame(width: tileSize + wellPad * 2, height: tileSize + wellPad * 2)
+                .frame(width: wellSide, height: wellSide)
                 .accessibilityHidden(true)
         }
     }

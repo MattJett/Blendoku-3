@@ -105,17 +105,20 @@ jobs:
           # The board is where the layout risk lives, so photograph one too.
           shoot 02-ink-level-07 -uiPreviewAppearance ink -uiPreviewLevel 7
           shoot 03-ink-level-84 -uiPreviewAppearance ink -uiPreviewLevel 84
+          # The biggest board in the game, which is where the zoom, the two-row
+          # tray and the fit-to-screen floor all have to hold at once.
+          shoot 04-ink-level-100 -uiPreviewAppearance ink -uiPreviewLevel 100
 
           # Paper is a real design rather than a tint flip. A light ground is
           # where low-contrast hairlines, micro-caps and soft shadows fail, and
           # that failure is invisible in dark mode.
-          shoot 04-paper-home -uiPreviewAppearance paper
-          shoot 05-paper-level-84 -uiPreviewAppearance paper -uiPreviewLevel 84
+          shoot 05-paper-home -uiPreviewAppearance paper
+          shoot 06-paper-level-84 -uiPreviewAppearance paper -uiPreviewLevel 84
 
           # The victory panel, on both grounds. It is the most sculpted surface
           # in the app, so it is where a wrong shadow shows up first.
-          shoot 06-ink-victory -uiPreviewAppearance ink -uiPreviewLevel 26 -uiPreviewSolved 1
-          shoot 07-paper-victory -uiPreviewAppearance paper -uiPreviewLevel 26 -uiPreviewSolved 1
+          shoot 07-ink-victory -uiPreviewAppearance ink -uiPreviewLevel 26 -uiPreviewSolved 1
+          shoot 08-paper-victory -uiPreviewAppearance paper -uiPreviewLevel 26 -uiPreviewSolved 1
 
       # The screenshots upload as an artifact, which serves a person fine. An
       # agent driving this repo cannot fetch them though — both the artifact

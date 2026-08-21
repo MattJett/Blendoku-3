@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// Offsetting a pan by a drag translation. Swift does not ship arithmetic on
+/// `CGSize`, and spelling it out at all four call sites obscures what is a very
+/// simple idea.
+private func + (lhs: CGSize, rhs: CGSize) -> CGSize {
+    CGSize(width: lhs.width + rhs.width, height: lhs.height + rhs.height)
+}
+
 /// Lays the puzzle out on a regular grid and hosts the tile gestures.
 @MainActor
 struct BoardView: View {
@@ -9,9 +16,25 @@ struct BoardView: View {
 
     private var puzzle: Puzzle { controller.session.puzzle }
 
+    /// Zoom and pan are applied to the *layout*, not as a `scaleEffect` over
+    /// it. A transform would leave `BoardPlacement` describing the untransformed
+    /// board, and every drop would land in the wrong cell; folding the zoom into
+    /// `step` and the pan into `inset` means the geometry the drag coordinator
+    /// reads is the geometry on screen, with nothing to keep in sync.
+    @State private var zoom: CGFloat = 1
+    @State private var pan: CGSize = .zero
+    @GestureState private var pinch: CGFloat = 1
+    @GestureState private var sweep: CGSize = .zero
+
+    private static let maxZoom: CGFloat = 3.2
+
     var body: some View {
         GeometryReader { proxy in
-            let metrics = Metrics(columns: puzzle.columns, rows: puzzle.rows, available: proxy.size)
+            let live = min(max(zoom * pinch, 1), Self.maxZoom)
+            let metrics = Metrics(columns: puzzle.columns, rows: puzzle.rows,
+                                  available: proxy.size, zoom: live,
+                                  pan: clamped(pan + sweep, zoom: live,
+                                               available: proxy.size))
 
             let occupied = Set(puzzle.cells)
 
@@ -23,12 +46,54 @@ struct BoardView: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .overlay { BoardMarks(metrics: metrics, columns: puzzle.columns, rows: puzzle.rows) }
+            // Behind the tiles rather than over them, so a drag that starts on a
+            // tile is claimed by the tile and only a drag on bare board pans.
+            .background(Color.clear.contentShape(Rectangle()))
+            .gesture(panGesture(available: proxy.size))
+            .simultaneousGesture(zoomGesture())
+            .onTapGesture(count: 2) {
+                withAnimation(Motion.screen) { zoom = 1; pan = .zero }
+            }
+            .clipped()
             .preference(key: BoardPlacementKey.self,
                         value: BoardPlacement(frame: proxy.frame(in: .named(space)),
                                               step: metrics.step,
                                               tile: metrics.tile,
                                               firstCentre: metrics.centre(of: GridPoint(0, 0))))
         }
+    }
+
+    // MARK: - Zoom and pan
+
+    private func zoomGesture() -> some Gesture {
+        MagnifyGesture()
+            .updating($pinch) { value, state, _ in state = value.magnification }
+            .onEnded { value in
+                zoom = min(max(zoom * value.magnification, 1), Self.maxZoom)
+                if zoom == 1 { withAnimation(Motion.tile) { pan = .zero } }
+            }
+    }
+
+    /// Only pans once there is something to pan to. At fit size the board is
+    /// fully visible, so a drag across it would just slide it off the screen.
+    private func panGesture(available: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 8)
+            .updating($sweep) { value, state, _ in state = value.translation }
+            .onEnded { value in
+                pan = clamped(pan + value.translation, zoom: zoom, available: available)
+            }
+    }
+
+    /// Keeps the board from being dragged away from the player. The allowance is
+    /// exactly the overhang the zoom created, so at fit size it is zero.
+    private func clamped(_ offset: CGSize, zoom: CGFloat, available: CGSize) -> CGSize {
+        let base = Metrics.baseStep(columns: puzzle.columns, rows: puzzle.rows, available: available)
+        let width = CGFloat(puzzle.columns) * base * zoom
+        let height = CGFloat(puzzle.rows) * base * zoom
+        let slackX = max(0, (width - available.width) / 2)
+        let slackY = max(0, (height - available.height) / 2)
+        return CGSize(width: min(max(offset.width, -slackX), slackX),
+                      height: min(max(offset.height, -slackY), slackY))
     }
 
     // MARK: - One cell
@@ -127,17 +192,26 @@ struct BoardView: View {
         /// the background, leaving a hairline seam down the middle of a blend.
         let bleed: CGFloat = 0.5
 
-        init(columns: Int, rows: Int, available: CGSize) {
-            let rawStep = min(available.width / CGFloat(max(columns, 1)),
-                              available.height / CGFloat(max(rows, 1)))
-            step = min(max(rawStep, 22), 92)
+        /// The size a cell gets when the whole board has to fit the screen.
+        /// The floor matters now that boards reach fourteen rows: below it the
+        /// tiles stop being touchable, and zoom is the answer rather than
+        /// shrinking further.
+        static func baseStep(columns: Int, rows: Int, available: CGSize) -> CGFloat {
+            let raw = min(available.width / CGFloat(max(columns, 1)),
+                          available.height / CGFloat(max(rows, 1)))
+            return min(max(raw, 26), 92)
+        }
+
+        init(columns: Int, rows: Int, available: CGSize,
+             zoom: CGFloat = 1, pan: CGSize = .zero) {
+            step = Self.baseStep(columns: columns, rows: rows, available: available) * zoom
             // No gap: cells in the same shape are meant to touch, and separate
             // shapes are already kept a clear cell apart by the generator.
             tile = step
             let boardWidth = CGFloat(columns) * step
             let boardHeight = CGFloat(rows) * step
-            inset = CGPoint(x: (available.width - boardWidth) / 2 + tile / 2,
-                            y: (available.height - boardHeight) / 2 + tile / 2)
+            inset = CGPoint(x: (available.width - boardWidth) / 2 + tile / 2 + pan.width,
+                            y: (available.height - boardHeight) / 2 + tile / 2 + pan.height)
         }
 
         func centre(of point: GridPoint) -> CGPoint {

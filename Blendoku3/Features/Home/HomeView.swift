@@ -16,7 +16,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
                     Spacer(minLength: 0)
-                    CircleIconButton(systemName: "slider.horizontal.3", label: "Settings") {
+                    IconButton(systemName: "slider.horizontal.3", label: "Settings") {
                         router.push(.settings)
                     }
                 }
@@ -61,7 +61,7 @@ struct HomeView: View {
             MoodLabel("One hundred blends")
                 .staggeredAppear(index: 1, perItem: 0.06)
 
-            EmbossedTitle(text: "Blendoku")
+            Wordmark()
                 .staggeredAppear(index: 1, perItem: 0.06)
 
             Text("Slide every tile until the colours blend evenly, end to end.")
@@ -126,20 +126,27 @@ struct HomeView: View {
 /// carries the hierarchy so hue does not have to, which leaves every saturated
 /// pixel on this screen belonging to the puzzle.
 @MainActor
-struct EmbossedTitle: View {
-    let text: String
-    var size: CGFloat = 52
+struct Wordmark: View {
+    var size: CGFloat = 54
 
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        Text(text)
-            .font(Theme.display(size, weight: .light))
-            .kerning(-1.4)
+        // The two halves meet with no space between them and no join drawn —
+        // the same move the board makes, where two colours sit flush and the
+        // boundary is only a change of value. Here the change is weight: a
+        // black cut running straight into a thin one.
+        (Text("Swatch").font(Theme.display(size, weight: .black))
+            + Text("word").font(Theme.display(size, weight: .thin)))
+            .textCase(.uppercase)
+            .tracking(0.5)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
             .foregroundStyle(Theme.textPrimary)
             .shadow(color: .white.opacity(scheme == .dark ? 0.10 : 0.85), radius: 0.5, x: 0, y: -1)
             .shadow(color: .black.opacity(scheme == .dark ? 0.55 : 0.16), radius: 1.5, x: 0, y: 2)
             .accessibilityAddTraits(.isHeader)
+            .accessibilityLabel("Swatchword")
     }
 }
 

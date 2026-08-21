@@ -18,18 +18,20 @@ struct PillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 10) {
             if let chip {
-                Circle()
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(chip)
-                    .frame(width: 9, height: 9)
+                    .frame(width: 10, height: 10)
             }
             configuration.label
         }
-        .font(Theme.text(16, weight: .semibold))
+        .font(Theme.control(15, weight: .bold))
+        .textCase(.uppercase)
+        .tracking(Theme.controlTracking)
         .foregroundStyle(Theme.textPrimary)
         .padding(.vertical, 17)
         .padding(.horizontal, Theme.Space.wide)
         .frame(maxWidth: wide ? .infinity : nil)
-        .softSurface(Capsule(style: .continuous),
+        .softSurface(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous),
                      depth: 11,
                      pressed: configuration.isPressed)
     }
@@ -43,20 +45,24 @@ struct OutlineButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Theme.text(15, weight: .medium))
+            .font(Theme.control(14, weight: .semibold))
+            .textCase(.uppercase)
+            .tracking(Theme.controlTracking)
             .foregroundStyle(Theme.textPrimary)
             .padding(.vertical, 15)
             .padding(.horizontal, Theme.Space.base)
             .frame(maxWidth: wide ? .infinity : nil)
-            .softSurface(Capsule(style: .continuous),
+            .softSurface(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous),
                          depth: 6,
                          pressed: configuration.isPressed)
     }
 }
 
-/// Small round icon button used across the HUD.
+/// The small icon button used across the HUD. A rounded square rather than a
+/// disc, so it belongs to the same family as everything else the finger can
+/// press — there are no circles and no stadiums in the chrome any more.
 @MainActor
-struct CircleIconButton: View {
+struct IconButton: View {
     let systemName: String
     var label: String
     var tint: Color = Theme.textPrimary
@@ -65,20 +71,24 @@ struct CircleIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: 40, height: 40)
         }
-        .buttonStyle(SoftCircleStyle())
+        .buttonStyle(SoftIconStyle())
         .accessibilityLabel(label)
     }
 }
 
 @MainActor
-struct SoftCircleStyle: ButtonStyle {
+struct SoftIconStyle: ButtonStyle {
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous)
+    }
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .contentShape(Circle())
-            .softSurface(Circle(), depth: 7, pressed: configuration.isPressed)
+            .contentShape(shape)
+            .softSurface(shape, depth: 7, pressed: configuration.isPressed)
     }
 }

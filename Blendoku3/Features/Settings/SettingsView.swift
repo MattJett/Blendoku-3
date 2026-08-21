@@ -133,7 +133,9 @@ private struct AppearancePicker: View {
                     withAnimation(Motion.tile) { selection = option }
                 } label: {
                     Text(option.title)
-                        .font(Theme.text(14, weight: selection == option ? .semibold : .regular))
+                        .font(Theme.control(13, weight: selection == option ? .bold : .medium))
+                        .textCase(.uppercase)
+                        .tracking(Theme.controlTracking)
                         .foregroundStyle(selection == option ? Theme.textPrimary : Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 11)
@@ -141,17 +143,21 @@ private struct AppearancePicker: View {
                             // The chosen option is the one thing standing up out
                             // of the trough; the others stay flush with it.
                             if selection == option {
-                                SoftSurface(shape: Capsule(style: .continuous), depth: 7)
+                                SoftSurface(shape: RoundedRectangle(cornerRadius: Theme.Radius.chip,
+                                                                    style: .continuous),
+                                            depth: 7)
                             }
                         }
-                        .contentShape(Capsule())
+                        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.chip,
+                                                       style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selection == option ? [.isButton, .isSelected] : .isButton)
             }
         }
         .padding(5)
-        .softSurface(Capsule(style: .continuous), depth: 6, pressed: true)
+        .softSurface(RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous),
+                     depth: 6, pressed: true)
         .accessibilityLabel("Appearance")
     }
 }

@@ -1,8 +1,15 @@
-# Blendoku 3
+# Swatchword
 
 A colour-blending puzzle game for iOS, in the shape of Lonely Few's *Blendoku 2*:
 a board of coloured tiles with gaps in it, a tray of loose tiles, and one rule —
 every row and column has to read as an even blend from one end to the other.
+
+The Xcode target, the source directory and the bundle identifier are all still
+`Blendoku3` / `com.mattjett.blendoku3`. That is deliberate: renaming the bundle
+identifier makes iOS treat the build as a different app, which means a fresh
+install, a lost save file and re-provisioning on any device it is already
+sideloaded to. The name a player sees comes from `CFBundleDisplayName`, and that
+one says Swatchword.
 
 100 levels, none of them hand-authored. Each one is generated from its own level
 number, so level 57 is the same puzzle on every device and every launch, and
@@ -153,18 +160,49 @@ screen's preview strip runs the full width of the device with square ends, and
 each chapter in the level list is ten swatches meeting edge to edge rather than
 ten buttons that happen to be coloured.
 
-Everything else is drawn with hairlines. Sections are tracked-out micro-caps
-over a one-pixel rule; counters are monospaced figures with a caption
-underneath; the board is located by four crosshair registration marks rather
-than boxed in. The rule beneath the game header *is* the progress bar. Buttons
-are stadiums — one high-contrast fill for the primary action, hairline outlines
-for everything else.
+**The chrome has no borders.** Every panel, shelf, button and well is the
+*same colour as the ground behind it* — all white on paper, all black on ink —
+and is made three-dimensional by nothing but a dark shadow falling one way and a
+light one falling the other. `SoftSurface` is the whole system: one shape, one
+depth number, and a `pressed` flag that flips the lighting inward instead of
+outward, which is what turns a button into a hole. Empty board cells are holes.
+Locked levels are holes. A pressed button is a hole. Because a press is the same
+two shadows either way, it animates continuously rather than swapping between
+two looks.
+
+Nothing is ever painted on a tile face, in any role. On the board that is
+because a border or a highlight draws a line between neighbours and turns a
+gradient back into a row of swatches. In the tray it is because a tray tile is a
+*promise* about what the board will look like, and a white top-light is a lie —
+it lifts the swatch a visible step away from the colour that actually lands.
+Tray swatches get their separation from a well recessed into the shelf, which
+never touches the colour being judged.
+
+Type is a compressed grotesque set in caps: the system face at its narrowest cut
+and heaviest weight, which is as close to a brutalist sans as iOS gets without
+licensing one — and unlike a bundled font it carries every weight and optical
+size, so it scales with Dynamic Type and never falls back. Buttons are rounded
+rectangles, not stadiums. Running prose stays sentence case; caps are for
+titles, labels and controls, where they are read as shapes rather than
+letter by letter.
+
+The wordmark makes the app's own move: `SWATCH` in the black cut running flush
+into `WORD` in the thin one, no space and no join drawn, so the boundary is only
+a change of weight — the same way two tiles meet on the board.
+
+Instrumentation survives all of this, because it is annotation rather than
+decoration: tracked-out micro-caps over a one-pixel rule, monospaced counters
+with a caption underneath, four crosshair registration marks locating the board
+instead of a box around it. The rule beneath the game header *is* the progress
+bar.
 
 Drag a tile and it lifts above your finger, throwing its own colour onto the
 page as a glow; the slot under it swells and the drop lands with a spring and a
 tap of haptics. Finishing a board sends a ripple across it, cell by cell, and
-the solved palette blooms behind a sheet of glass. The selection ring is two
-strokes, one dark and one light, and carries no hue at all — a tinted ring is
+then a single sculpted panel: the stars are marks in a recessed track, an
+unearned one pressed into the panel rather than dimmed, and the palette you just
+rebuilt inlaid in a trough as the only colour in the frame. The selection ring is
+two strokes, one dark and one light, and carries no hue at all — a tinted ring is
 invisible against a tile that happens to share its hue, and on this board that
 case comes up constantly.
 

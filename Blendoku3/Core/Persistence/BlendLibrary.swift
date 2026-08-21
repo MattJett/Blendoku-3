@@ -89,6 +89,17 @@ final class BlendLibrary {
         save()
     }
 
+    /// Blocks until every queued write has landed.
+    ///
+    /// Writes go out on a background queue so keeping a blend never stalls a
+    /// tap. That is right for the app and wrong for anyone who needs to know
+    /// the disk caught up — a test reading the file back, or a save on the way
+    /// to the background. The queue is serial, so a `sync` after an `async`
+    /// returns only once the earlier block has finished.
+    func flush() {
+        queue.sync {}
+    }
+
     // MARK: - Disk
 
     private struct Payload: Codable {

@@ -30,10 +30,9 @@ final class BlendLibraryTests: XCTestCase {
     func testKeepingSurvivesAReload() {
         let library = BlendLibrary(filename: filename)
         library.keep(level: 7, colours: palette)
-        // The write is asynchronous, so give it a beat before reading back.
-        let written = expectation(description: "written")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { written.fulfill() }
-        wait(for: [written], timeout: 2)
+        // Writes are asynchronous. Waiting a fixed interval is a coin toss on a
+        // loaded runner — this waits for the write itself.
+        library.flush()
 
         let reloaded = BlendLibrary(filename: filename)
         XCTAssertEqual(reloaded.blends.count, 1)
@@ -89,6 +88,7 @@ final class BlendLibraryTests: XCTestCase {
         let library = BlendLibrary(filename: filename)
         XCTAssertTrue(library.isReadOnly)
         library.keep(level: 5, colours: palette)
+        library.flush()
 
         let onDisk = try String(contentsOf: url, encoding: .utf8)
         XCTAssertEqual(onDisk, future, "a newer file was overwritten")

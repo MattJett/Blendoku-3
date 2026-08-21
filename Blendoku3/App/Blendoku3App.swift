@@ -63,6 +63,7 @@ struct Blendoku3App: App {
         case "chromarcs": router.push(.chromarcs)
         case "collection": router.push(.collection)
         case "levels": router.push(.levels)
+        case "settings": router.push(.settings)
         case "arcComplete": router.push(.arcComplete(1))
         default: break
         }

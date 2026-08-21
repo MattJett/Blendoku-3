@@ -42,6 +42,12 @@ if [ -z "$udid" ]; then
 fi
 open -a Simulator
 
+# `simctl boot` returns the moment the request is accepted, not when the device
+# is ready, so installing straight afterwards fails with "Unable to lookup in
+# current state: Shutdown". Wait for the device to actually finish booting.
+echo "==> Waiting for the simulator"
+xcrun simctl bootstatus "$udid" -b >/dev/null 2>&1 || true
+
 echo "==> Building"
 xcodebuild build \
     -project Blendoku3.xcodeproj \
@@ -58,9 +64,20 @@ app="$(find .build/Build/Products -maxdepth 2 -name 'Blendoku3.app' -type d | he
 echo "==> Installing $app"
 xcrun simctl install "$udid" "$app"
 
-args=()
-[ -n "$level" ] && args+=(-uiPreviewLevel "$level")
-[ -n "$appearance" ] && args+=(-uiPreviewAppearance "$appearance")
+# Built as a plain string rather than an array. macOS ships bash 3.2, where
+# expanding an empty array under `set -u` is itself an "unbound variable"
+# error — so `Tools/run-simulator.sh` with no arguments, the most common way to
+# run it, was the one way that could not work.
+args=""
+if [ -n "$level" ]; then
+    args="$args -uiPreviewLevel $level"
+fi
+if [ -n "$appearance" ]; then
+    args="$args -uiPreviewAppearance $appearance"
+fi
 
 echo "==> Launching"
-xcrun simctl launch --console-pty "$udid" "$bundle_id" "${args[@]}"
+# Deliberately not --console-pty: that holds the terminal open streaming the
+# app's log, and this script exists so you can go and play the game.
+# shellcheck disable=SC2086
+xcrun simctl launch "$udid" "$bundle_id" $args

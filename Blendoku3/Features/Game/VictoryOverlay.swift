@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// What you get for solving one.
 ///
@@ -22,11 +23,15 @@ struct VictoryOverlay: View {
     let onLevels: () -> Void
 
     @State private var appeared = false
+    @State private var copied = false
 
     /// `paletteSwatches` hands back what it has, which for a degenerate puzzle
     /// could be a single colour. Everything below indexes into this, so pad it.
     private var swatches: [BlendColor] {
-        let drawn = puzzle.paletteSwatches(count: 7)
+        // More samples than the old seven: the ribbon is continuous now, so
+        // every extra sample is a real bend in the curve rather than another
+        // block in a row.
+        let drawn = puzzle.paletteSwatches(count: 14)
         guard let first = drawn.first else {
             return Array(repeating: BlendColor(lightness: 0.6, chroma: 0.08, hue: 40), count: 7)
         }
@@ -56,11 +61,28 @@ struct VictoryOverlay: View {
 
                     SoftPips(filled: record.stars, total: 3)
 
-                    // The palette they just rebuilt, inlaid in the panel.
-                    SwatchBar(colours: swatches, height: 34, radius: 9)
-                        .padding(5)
-                        .softSurface(RoundedRectangle(cornerRadius: 15, style: .continuous),
-                                     depth: 7, pressed: true)
+                    // The palette they just rebuilt, inlaid in the panel — and
+                    // now as one continuous ribbon rather than a row of blocks.
+                    // The cell boundaries were the puzzle; once it is solved
+                    // they are the only thing standing between the player and
+                    // the blend they made.
+                    VStack(spacing: Theme.Space.tight) {
+                        GradientRibbon(colours: swatches)
+                            .padding(6)
+                            .softSurface(RoundedRectangle(cornerRadius: 20, style: .continuous),
+                                         depth: 8, pressed: true)
+
+                        Button {
+                            UIPasteboard.general.string = GradientRibbon.css(swatches)
+                            Haptics.play(.snap)
+                            withAnimation(Motion.quick) { copied = true }
+                        } label: {
+                            Label(copied ? "Copied" : "Copy CSS",
+                                  systemImage: copied ? "checkmark" : "doc.on.doc")
+                        }
+                        .buttonStyle(OutlineButtonStyle())
+                        .accessibilityHint("Copies this blend as a CSS linear-gradient")
+                    }
 
                     HStack(spacing: Theme.Space.base) {
                         Readout(value: "\(record.moves)", label: "moves", size: 17, alignment: .center)

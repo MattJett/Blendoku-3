@@ -141,6 +141,13 @@ struct GameScreen: View {
         showVictory = false
         record = nil
         router.backdropPalette = puzzle.paletteSwatches(count: 4)
+
+        // The board picks the instrument, the tile picks the note — so the
+        // whole tone table is rendered here, off the main thread, well before
+        // anyone can touch a tile.
+        let profile = DifficultyCurve.profile(for: level, arc: puzzle.arc)
+        SoundField.shared.prepare(hue: profile.baseHue,
+                                  chroma: 0.16 * profile.chromaFraction.upperBound)
         progress.markPlayed(level: level)
         catalog.prefetch(after: level)
 

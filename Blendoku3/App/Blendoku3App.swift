@@ -20,10 +20,14 @@ struct Blendoku3App: App {
                 .preferredColorScheme(settings.appearance.colorScheme)
                 .onAppear {
                     Haptics.isEnabled = settings.hapticsEnabled
+                    SoundField.shared.isEnabled = settings.soundEnabled
                     applyLaunchOverrides()
                 }
                 .onChange(of: settings.hapticsEnabled) { _, enabled in
                     Haptics.isEnabled = enabled
+                }
+                .onChange(of: settings.soundEnabled) { _, enabled in
+                    SoundField.shared.isEnabled = enabled
                 }
         }
     }

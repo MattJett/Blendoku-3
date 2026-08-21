@@ -206,6 +206,25 @@ case comes up constantly.
 Screens slide a short distance rather than the full width, over a ground
 carrying two or three slow blooms of the level's own palette.
 
+**The board has a voice.** Lightness picks a pitch, so a tile that belongs
+further along a ramp sounds further up the scale and a finished run reads as a
+rising figure — in tune, because being correct is what puts it in tune. The
+scale is a just-intonation major pentatonic: every degree is a small-integer
+ratio to the root, which is what harmonic means literally rather than
+approximately, and pentatonic has no semitones, so no two notes a player can
+produce by jabbing at tiles are close enough to clash. Only a wrong placement
+is allowed to sound wrong, and it does it by wavering — a second voice a fixed
+4.5 Hz away, beating at the same rate whatever the pitch. A fixed detune in
+cents would beat at 4 Hz on a dark tile and 21 on a light one, which is a
+gentle wobble at one end of the board and roughness at the other.
+
+Hue does not move the pitch; it sets the timbre, once per level. The board
+picks the instrument, the tile picks the note. Tones are synthesised rather
+than shipped — a hundred levels times thirteen pitches times three events is
+four thousand files nobody wants to author, and every one of them would be an
+approximation of something the app can work out exactly. The session is
+`.ambient`, so whatever you already had playing keeps playing.
+
 Everything honours **Reduce Motion**, which stills the ground and the looping
 demos.
 

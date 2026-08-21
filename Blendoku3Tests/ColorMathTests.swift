@@ -102,3 +102,28 @@ final class GradientRibbonTests: XCTestCase {
         }
     }
 }
+
+/// Saved blends are stored as text, so the text has to survive the round trip.
+final class HexRoundTripTests: XCTestCase {
+    func testHexParsesBackToTheSameEightBitColour() {
+        for hue in stride(from: 0.0, to: 360.0, by: 23.0) {
+            for lightness in [0.18, 0.42, 0.61, 0.88] {
+                let original = BlendColor(lightness: lightness, chroma: 0.09, hue: hue)
+                    .clippedToGamut()
+                guard let parsed = BlendColor(hex: original.hexString) else {
+                    return XCTFail("could not parse \(original.hexString)")
+                }
+                XCTAssertEqual(parsed.hexString, original.hexString)
+            }
+        }
+    }
+
+    func testHexAcceptsBothSpellingsAndRejectsJunk() {
+        XCTAssertEqual(BlendColor(hex: "#FF8800")?.hexString, "#FF8800")
+        XCTAssertEqual(BlendColor(hex: "ff8800")?.hexString, "#FF8800")
+        XCTAssertEqual(BlendColor(hex: "  #ff8800 ")?.hexString, "#FF8800")
+        XCTAssertNil(BlendColor(hex: "#FFF"))
+        XCTAssertNil(BlendColor(hex: "#GGGGGG"))
+        XCTAssertNil(BlendColor(hex: ""))
+    }
+}

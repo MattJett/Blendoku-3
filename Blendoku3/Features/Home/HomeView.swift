@@ -14,8 +14,11 @@ struct HomeView: View {
             let strip = (proxy.size.width - EdgeRail.width) / CGFloat(BlendPreviewStrip.count)
 
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) {
+                HStack(alignment: .top, spacing: Theme.Space.snug) {
                     Spacer(minLength: 0)
+                    IconButton(systemName: "bookmark", label: "Kept blends") {
+                        router.push(.collection)
+                    }
                     IconButton(systemName: "slider.horizontal.3", label: "Settings") {
                         router.push(.settings)
                     }

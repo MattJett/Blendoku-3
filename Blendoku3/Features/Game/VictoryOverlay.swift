@@ -22,6 +22,8 @@ struct VictoryOverlay: View {
     let onReplay: () -> Void
     let onLevels: () -> Void
 
+    @Environment(BlendLibrary.self) private var library
+
     @State private var appeared = false
     @State private var copied = false
 
@@ -72,16 +74,28 @@ struct VictoryOverlay: View {
                             .softSurface(RoundedRectangle(cornerRadius: 20, style: .continuous),
                                          depth: 8, pressed: true)
 
-                        Button {
-                            UIPasteboard.general.string = GradientRibbon.css(swatches)
-                            Haptics.play(.snap)
-                            withAnimation(Motion.quick) { copied = true }
-                        } label: {
-                            Label(copied ? "Copied" : "Copy CSS",
-                                  systemImage: copied ? "checkmark" : "doc.on.doc")
+                        HStack(spacing: Theme.Space.snug) {
+                            Button {
+                                UIPasteboard.general.string = GradientRibbon.css(swatches)
+                                Haptics.play(.snap)
+                                withAnimation(Motion.quick) { copied = true }
+                            } label: {
+                                Label(copied ? "Copied" : "Copy CSS",
+                                      systemImage: copied ? "checkmark" : "doc.on.doc")
+                            }
+                            .buttonStyle(OutlineButtonStyle())
+                            .accessibilityHint("Copies this blend as a CSS linear-gradient")
+
+                            Button {
+                                library.keep(level: puzzle.level, colours: swatches)
+                                Haptics.play(.snap)
+                            } label: {
+                                Label(isKept ? "Kept" : "Keep",
+                                      systemImage: isKept ? "bookmark.fill" : "bookmark")
+                            }
+                            .buttonStyle(OutlineButtonStyle())
+                            .accessibilityHint("Saves this blend to your collection")
                         }
-                        .buttonStyle(OutlineButtonStyle())
-                        .accessibilityHint("Copies this blend as a CSS linear-gradient")
                     }
 
                     HStack(spacing: Theme.Space.base) {
@@ -114,6 +128,10 @@ struct VictoryOverlay: View {
             withAnimation(.spring(response: 0.52, dampingFraction: 0.82)) { appeared = true }
         }
     }
+
+    /// Keeping the same level twice replaces rather than duplicates, so the
+    /// button only ever needs to say whether this board is already on the shelf.
+    private var isKept: Bool { library.saved(arc: 1, level: puzzle.level) != nil }
 
     private var timeText: String {
         let seconds = Int(record.seconds.rounded())

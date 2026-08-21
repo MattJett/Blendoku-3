@@ -29,6 +29,8 @@ struct RootView: View {
             HowToPlayView()
         case .settings:
             SettingsView()
+        case .collection:
+            CollectionView()
         }
     }
 }

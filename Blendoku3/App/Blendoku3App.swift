@@ -7,6 +7,7 @@ struct Blendoku3App: App {
     @State private var catalog = LevelCatalog()
     @State private var progress = ProgressStore()
     @State private var settings = GameSettings()
+    @State private var library = BlendLibrary()
 
     var body: some Scene {
         WindowGroup {
@@ -15,6 +16,7 @@ struct Blendoku3App: App {
                 .environment(catalog)
                 .environment(progress)
                 .environment(settings)
+                .environment(library)
                 .preferredColorScheme(settings.appearance.colorScheme)
                 .onAppear {
                     Haptics.isEnabled = settings.hapticsEnabled

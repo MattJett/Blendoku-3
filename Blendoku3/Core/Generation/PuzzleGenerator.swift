@@ -25,7 +25,17 @@ enum PuzzleGenerator {
     // MARK: - One attempt
 
     private static func build(profile: DifficultyProfile, attempt: Int, rng: inout SplitMix64) -> Puzzle? {
-        let budgets = split(total: profile.targetCells, into: profile.componentCount)
+        // Later attempts ask for a slightly smaller board.
+        //
+        // A level that needs a hundred seeds is one whose target sits right on
+        // what the gamut can hold, and grinding the same target against fresh
+        // randomness is a slow way to discover that. Giving back a few cells
+        // once the easy seeds are spent settles those levels in a fraction of
+        // the attempts, and a board four cells under target is not something a
+        // player can perceive — a four-second stall is.
+        let relief = 1 - 0.25 * min(1, Double(attempt) / 110)
+        let wanted = max(3, Int((Double(profile.targetCells) * relief).rounded()))
+        let budgets = split(total: wanted, into: profile.componentCount)
         var shapes: [[GridPoint]] = []
         for budget in budgets {
             let archetype = rng.pick(profile.archetypes)
@@ -38,7 +48,7 @@ enum PuzzleGenerator {
         guard let placed = pack(shapes: shapes) else { return nil }
         let cellSet = Set(placed.flatMap { $0 })
         guard cellSet.count == placed.reduce(0, { $0 + $1.count }) else { return nil }
-        guard cellSet.count <= profile.targetCells + 8 else { return nil }
+        guard cellSet.count <= wanted + 8 else { return nil }
         let cells = cellSet.sorted()
 
         // A colour field per shape, hues fanned out so shapes stay tellable apart.

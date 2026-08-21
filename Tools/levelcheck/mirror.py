@@ -607,7 +607,10 @@ def generate(level, max_attempts=180, stats=None):
 
 
 def try_build(prof, attempt, rng):
-    budgets = split_budget(prof["cells"], prof["components"])
+    # Later attempts ask for a slightly smaller board — see the Swift comment.
+    relief = 1 - 0.25 * min(1, attempt / 110)
+    wanted_cells = max(3, swift_round(prof["cells"] * relief))
+    budgets = split_budget(wanted_cells, prof["components"])
     shapes = []
     for budget in budgets:
         kind = rng.pick(prof["archetypes"])
@@ -623,7 +626,7 @@ def try_build(prof, attempt, rng):
     flat = [p for s in placed for p in s]
     if len(set(flat)) != len(flat):
         return None
-    if len(set(flat)) > prof["cells"] + 8:
+    if len(set(flat)) > wanted_cells + 8:
         return None
     cells = sorted(set(flat), key=lambda p: (p[1], p[0]))
 

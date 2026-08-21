@@ -73,3 +73,39 @@ final class ChromarcTests: XCTestCase {
         XCTAssertEqual(PuzzleGenerator.puzzle(level: 3, arc: 2).arc, 2)
     }
 }
+
+/// The arc ribbon is the largest piece of colour in the game and the last thing
+/// a player sees, so it gets held to being an actual gradient.
+extension ChromarcTests {
+    func testArcRampIsSmoothRatherThanAConcatenation() {
+        let ramp = Chromarc.first.previewRamp(steps: 48)
+        XCTAssertEqual(ramp.count, 48)
+
+        // Built as one diagonal through the colour solid, so lightness only
+        // ever climbs. The version this replaced strung per-level palettes
+        // together and jumped both ways.
+        for index in 1..<ramp.count {
+            XCTAssertGreaterThan(ramp[index].l, ramp[index - 1].l - 1e-9, "step \(index)")
+        }
+
+        // No step may be a visible jump. The old ramp had gaps several times
+        // this size between neighbours cut from different levels.
+        for index in 1..<ramp.count {
+            XCTAssertLessThan(ramp[index - 1].distance(to: ramp[index]), 0.09,
+                              "step \(index) is a seam, not a blend")
+        }
+    }
+
+    func testArcRampStaysInsideWhatTheScreenCanShow() {
+        for arc in Chromarc.all {
+            for colour in arc.previewRamp(steps: 64) {
+                XCTAssertTrue(colour.rgb.isInsideGamut,
+                              "arc \(arc.number): \(colour.hexString) is not displayable")
+            }
+        }
+    }
+
+    func testArcRampSurvivesASingleStep() {
+        XCTAssertEqual(Chromarc.first.previewRamp(steps: 1).count, 1)
+    }
+}

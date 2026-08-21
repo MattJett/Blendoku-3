@@ -18,15 +18,6 @@ struct ArcCompleteView: View {
     @State private var lit = false
     @State private var settled = false
 
-    /// The arc's whole range, sampled far more finely than any single board —
-    /// this is the only place the player sees the curve itself rather than a
-    /// slice of it.
-    private var ramp: [BlendColor] {
-        stride(from: 1, through: DifficultyCurve.levelCount, by: 4).flatMap { level in
-            DifficultyCurve.profile(for: level, arc: arc.number).previewRamp
-        }
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
@@ -55,7 +46,7 @@ struct ArcCompleteView: View {
 
             // Full bleed, no rounding, no panel: the one time the colour is not
             // held inside anything.
-            GradientRibbon(colours: ramp, height: 140, radius: 0)
+            GradientRibbon(colours: arc.previewRamp(steps: 96), height: 140, radius: 0)
                 .opacity(settled ? 1 : 0)
                 .scaleEffect(x: settled ? 1 : 0.7, anchor: .leading)
 

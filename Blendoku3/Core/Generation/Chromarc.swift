@@ -28,6 +28,30 @@ struct Chromarc: Identifiable, Hashable, Sendable {
         return span.lowerBound + (span.upperBound - span.lowerBound) * local
     }
 
+    /// The arc's palette as one continuous sweep.
+    ///
+    /// Not a concatenation of per-level ramps, which is what this was first
+    /// built as and why it came out looking like a barcode: a hundred levels
+    /// are a hundred *different* palettes, spaced a golden angle apart, and
+    /// stringing them together gives thirty-odd colours with a hue jump between
+    /// every pair. No ordering fixes that, because the jumps are the content.
+    ///
+    /// What the arc actually covers is the whole hue wheel, climbing in
+    /// lightness as the boards get subtler. So the ribbon is built as exactly
+    /// that — one diagonal through the colour solid — and comes out smooth
+    /// because it is smooth, rather than because it has been sorted.
+    func previewRamp(steps: Int = 48) -> [BlendColor] {
+        let mid = DifficultyCurve.profile(for: DifficultyCurve.levelCount / 2, arc: number)
+        return (0..<steps).map { index in
+            let t = Double(index) / Double(max(1, steps - 1))
+            return BlendColor(lightness: 0.30 + 0.42 * t,
+                              chroma: min(0.115 * mid.chromaFraction.upperBound,
+                                          mid.maxCellChroma),
+                              hue: t * 360)
+                .clippedToGamut()
+        }
+    }
+
     static let first = Chromarc(
         number: 1,
         title: "First Light",

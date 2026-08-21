@@ -49,7 +49,7 @@ struct ChromarcSelectView: View {
                     .tracking(0.4)
                     .foregroundStyle(arc.isPlayable ? Theme.textPrimary : Theme.textTertiary)
 
-                GradientRibbon(colours: ramp(for: arc), height: 46, radius: 10)
+                GradientRibbon(colours: arc.previewRamp(steps: 40), height: 46, radius: 10)
                     .opacity(arc.isPlayable ? 1 : 0.28)
                     .saturation(arc.isPlayable ? 1 : 0.15)
 
@@ -69,13 +69,6 @@ struct ChromarcSelectView: View {
                             : "Chromarc \(arc.number), \(arc.title), not available yet")
     }
 
-    /// A sample of what the arc's palettes look like, taken from the curve
-    /// rather than by generating a hundred boards.
-    private func ramp(for arc: Chromarc) -> [BlendColor] {
-        stride(from: 1, through: DifficultyCurve.levelCount, by: 12).flatMap { level in
-            DifficultyCurve.profile(for: level, arc: arc.number).previewRamp
-        }
-    }
 }
 
 /// Raised while it can be played, pressed into the page while it cannot.

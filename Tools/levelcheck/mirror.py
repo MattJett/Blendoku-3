@@ -112,7 +112,7 @@ CHAPTER_TITLES = ["First Light", "Turning Point", "Crossroads", "Lattice", "Twin
                   "Deep Field", "Whisper", "Constellation", "Labyrinth", "Event Horizon"]
 
 ARCHETYPES = {
-    1: ["row", "column"],
+    1: ["row", "column", "elbow"],
     2: ["row", "column", "elbow", "tee"],
     3: ["elbow", "tee", "cross", "staircase"],
     4: ["block", "plusGrid", "cross", "tee"],
@@ -137,24 +137,15 @@ def profile(level):
     level = max(1, min(100, level))
     chapter = max(1, min(10, (level - 1) // 10 + 1))
     t = (level - 1) / 99
-    cells = 3 + swift_round(23 * (t ** 1.6))
-    slot_ratio = 0.56 + 0.22 * t
-    slots = min(14, max(2, swift_round(cells * slot_ratio)))
-    min_step = 0.058 + 0.152 * ((1 - t) ** 1.9)
+    cells = 3 + swift_round(57 * (t ** 1.45))
+    slots = min(38, max(2, swift_round(cells * 0.55)))
+    min_step = 0.058 + 0.152 * ((1 - t) ** 2.6)
     max_step = min_step * (1.75 - 0.45 * t)
     decoys = 0 if level <= 25 else 1 if level <= 45 else 2 if level <= 65 else 3 if level <= 85 else 4
-    if level <= 36:
-        components = 1
-    elif level <= 52:
-        components = 1 if level % 4 == 0 else 2
-    elif level <= 70:
-        components = 3 if level % 5 == 0 else 2
-    elif level <= 86:
-        components = 2 if level % 3 == 0 else 3
-    else:
-        components = 3 if level % 2 == 0 else 4
-    components = max(1, min(components, cells // 3))
-    max_span = min(9, max(3, min(3 + swift_round(6 * t), int(0.72 / min_step) + 1)))
+    divisor = 4.0 + 6.0 * t
+    components = max(1, swift_round(cells / divisor))
+    components = max(1, min(min(components, 6), cells // 3))
+    max_span = min(11, max(3, min(3 + swift_round(8 * t), int(0.72 / min_step) + 1)))
     return {
         "level": level, "chapter": chapter, "cells": cells, "slots": slots,
         "components": components, "archetypes": ARCHETYPES[chapter],
@@ -603,7 +594,7 @@ def pack(shapes):
     return [[(x - minx, y - miny) for x, y in s] for s in best]
 
 
-def generate(level, max_attempts=72, stats=None):
+def generate(level, max_attempts=180, stats=None):
     prof = profile(level)
     for attempt in range(max_attempts):
         rng = Rng(game_seed(level, attempt))

@@ -9,7 +9,11 @@ import Foundation
 enum PuzzleGenerator {
     static func puzzle(level: Int) -> Puzzle {
         let profile = DifficultyCurve.profile(for: level)
-        for attempt in 0..<72 {
+        // Raised from 72 with the steeper curve. The big late boards sit close
+        // enough to the edge of the gamut that a seed can legitimately need a
+        // hundred tries — level 69 lands on its 130th — and a level that fails
+        // to generate is a level that does not exist.
+        for attempt in 0..<180 {
             var rng = SplitMix64(seed: .gameSeed(level: level, salt: UInt64(attempt)))
             if let puzzle = build(profile: profile, attempt: attempt, rng: &rng) {
                 return puzzle

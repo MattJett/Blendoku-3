@@ -4,12 +4,9 @@ A colour-blending puzzle game for iOS, in the shape of Lonely Few's *Blendoku 2*
 a board of coloured tiles with gaps in it, a tray of loose tiles, and one rule —
 every row and column has to read as an even blend from one end to the other.
 
-The Xcode target, the source directory and the bundle identifier are all still
-`Blendoku3` / `com.mattjett.blendoku3`. That is deliberate: renaming the bundle
-identifier makes iOS treat the build as a different app, which means a fresh
-install, a lost save file and re-provisioning on any device it is already
-sideloaded to. The name a player sees comes from `CFBundleDisplayName`, and that
-one says Swatchword.
+The bundle identifier is `com.mattjett.swatchword`. The Xcode target and the
+source directory are still called `Blendoku3` — that is internal plumbing, and
+renaming it churns the project file for no behavioural gain.
 
 100 levels, none of them hand-authored. Each one is generated from its own level
 number, so level 57 is the same puzzle on every device and every launch, and
@@ -59,7 +56,7 @@ things trip people up the first time:
 re-sign it with your Apple ID on the way onto the phone. The same Developer
 Mode and trust steps above apply.
 
-The bundle identifier is `com.mattjett.blendoku3`. If free provisioning refuses
+The bundle identifier is `com.mattjett.swatchword`. If free provisioning refuses
 it because someone else has registered it, change
 `PRODUCT_BUNDLE_IDENTIFIER` in the project settings to anything unique and try
 again.

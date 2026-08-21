@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."
 
 level="${1:-}"
 appearance="${2:-}"
-bundle_id="com.mattjett.blendoku3"
+bundle_id="com.mattjett.swatchword"
 
 if ! xcodebuild -version >/dev/null 2>&1; then
     echo "error: xcodebuild not found. Install Xcode from the App Store," >&2

@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BUNDLE_ID: com.mattjett.blendoku3
+  BUNDLE_ID: com.mattjett.swatchword
 
 jobs:
   ios:

@@ -33,7 +33,7 @@ struct Blendoku3App: App {
     /// a normal launch is unaffected. CI uses it to photograph a real board on
     /// a chosen ground instead of the menu in whatever mode it happens to be:
     ///
-    ///     xcrun simctl launch <device> com.mattjett.blendoku3 \
+    ///     xcrun simctl launch <device> com.mattjett.swatchword \
     ///         -uiPreviewLevel 42 -uiPreviewAppearance paper
     ///
     /// `GameScreen` reads one more of these, `-uiPreviewSolved`, which finishes

@@ -49,7 +49,7 @@ struct ScreenHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.snug) {
             HStack(spacing: Theme.Space.snug) {
-                CircleIconButton(systemName: "arrow.left", label: "Back", action: onBack)
+                IconButton(systemName: "arrow.left", label: "Back", action: onBack)
                 Spacer(minLength: 0)
                 if let trailing { trailing }
             }
@@ -60,7 +60,8 @@ struct ScreenHeader: View {
                 }
                 Text(title)
                     .font(Theme.display(34))
-                    .kerning(-0.6)
+                    .textCase(.uppercase)
+                    .tracking(0.4)
                     .foregroundStyle(Theme.textPrimary)
                 if let subtitle {
                     Text(subtitle)

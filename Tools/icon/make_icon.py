@@ -1,5 +1,12 @@
-"""Draws the app icon: a three-by-three blend cut from the same Oklab field the
-game generates its puzzles from. Pure Python so it runs anywhere.
+"""Draws the app icon: a full-bleed blend with one well cut into it.
+
+The field comes from the same Oklab maths the game generates its puzzles from,
+so the icon is a real board rather than a picture of one — sixteen colours
+meeting flush with no gaps and no gutters, which is the object the whole app is
+built around. The one dark cell is the move: the gap you are there to fill. It
+is drawn as a well, lit from the same corner as every well inside the app.
+
+Pure Python, no dependencies, so it runs anywhere.
 
     python3 Tools/icon/make_icon.py Blendoku3/Assets.xcassets/AppIcon.appiconset/AppIcon.png
 """
@@ -9,64 +16,82 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import mirror
 
 SIZE = 1024
-BACKDROP = (0x14, 0x16, 0x1E)
+GRID = 4
+#: The ink ground, so the notch is the same colour as the app behind it.
+GROUND = (0x0D, 0x0F, 0x12)
+#: Which cell is missing. Off-centre on both axes — a hole in the middle of a
+#: symmetrical grid reads as a design element, and off to one side reads as a
+#: piece that has been taken out.
+HOLE = (1, 2)  # row, column
 
 
-def rounded_coverage(px, py, x0, y0, x1, y1, radius):
-    """Signed-distance coverage of a rounded rectangle, for cheap antialiasing."""
-    cx = max(x0 + radius, min(px, x1 - radius))
-    cy = max(y0 + radius, min(py, y1 - radius))
-    distance = math.hypot(px - cx, py - cy) - radius
-    return max(0.0, min(1.0, 0.5 - distance))
+def clamp8(value):
+    return max(0, min(255, int(round(value))))
 
 
 def main(out_path):
-    pixels = bytearray()
-    for _ in range(SIZE * SIZE):
-        pixels += bytes(BACKDROP)
-
     # An affine Oklab field, exactly like a level: one axis climbs in
     # lightness, the other swings through hue.
-    origin = mirror.lch(0.34, 0.115, 292)
-    dx = mirror.sub(mirror.lch(0.52, 0.135, 214), origin)
-    dy = mirror.sub(mirror.lch(0.80, 0.105, 96), origin)
-    dx = mirror.scale(dx, 0.5)
-    dy = mirror.scale(dy, 0.5)
+    # Chroma is kept well below what the gamut allows. The app's own palettes
+    # are restrained, and an icon in highlighter colours would promise a
+    # different game than the one behind it.
+    origin = mirror.lch(0.32, 0.095, 292)
+    dx = mirror.scale(mirror.sub(mirror.lch(0.55, 0.105, 214), origin), 1.0 / (GRID - 1))
+    dy = mirror.scale(mirror.sub(mirror.lch(0.74, 0.080, 104), origin), 1.0 / (GRID - 1))
 
-    margin = 132
-    gap = 26
-    span = SIZE - margin * 2
-    cell = (span - gap * 2) / 3.0
-    radius = cell * 0.26
-
-    for row in range(3):
-        for column in range(3):
+    swatches = []
+    for row in range(GRID):
+        line = []
+        for column in range(GRID):
             colour = mirror.add(mirror.add(origin, mirror.scale(dx, column)),
                                 mirror.scale(dy, row))
             r, g, b = mirror.to_rgb(colour)
-            rgb = tuple(max(0, min(255, int(round(v * 255)))) for v in (r, g, b))
+            line.append(tuple(clamp8(v * 255) for v in (r, g, b)))
+        swatches.append(line)
 
-            x0 = margin + column * (cell + gap)
-            y0 = margin + row * (cell + gap)
-            x1, y1 = x0 + cell, y0 + cell
+    cell = SIZE / GRID
+    pixels = bytearray(SIZE * SIZE * 3)
 
-            for py in range(int(y0) - 2, int(y1) + 3):
-                if not (0 <= py < SIZE):
-                    continue
-                base = py * SIZE * 3
-                for px in range(int(x0) - 2, int(x1) + 3):
-                    if not (0 <= px < SIZE):
-                        continue
-                    alpha = rounded_coverage(px + 0.5, py + 0.5, x0, y0, x1, y1, radius)
-                    if alpha <= 0:
-                        continue
-                    index = base + px * 3
-                    for channel in range(3):
-                        old = pixels[index + channel]
-                        pixels[index + channel] = int(round(old + (rgb[channel] - old) * alpha))
+    for py in range(SIZE):
+        row = min(GRID - 1, int(py / cell))
+        base = py * SIZE * 3
+        for px in range(SIZE):
+            column = min(GRID - 1, int(px / cell))
+            if (row, column) == HOLE:
+                rgb = well_shade(px, py, row, column, cell)
+            else:
+                rgb = swatches[row][column]
+            index = base + px * 3
+            pixels[index] = rgb[0]
+            pixels[index + 1] = rgb[1]
+            pixels[index + 2] = rgb[2]
 
     write_png(out_path, pixels)
     print("wrote", out_path)
+
+
+def well_shade(px, py, row, column, cell):
+    """The missing cell, lit like every other well in the app.
+
+    Dark along the top-left inside edge, light along the bottom-right — the
+    same two shadows `SoftSurface` throws when `pressed` is set, so the notch
+    reads as pressed into the icon rather than punched out of it.
+    """
+    x0, y0 = column * cell, row * cell
+    # Distance in from each edge, normalised to the cell.
+    left = (px - x0) / cell
+    top = (py - y0) / cell
+    reach = 0.42
+
+    dark = max(0.0, 1.0 - max(left, top) / reach)
+    light = max(0.0, 1.0 - max(1.0 - left, 1.0 - top) / reach)
+
+    out = []
+    for channel, value in enumerate(GROUND):
+        value -= 13 * dark * dark             # deepen toward the top-left
+        value += (58 if channel == 2 else 48) * light * light  # cool lift below
+        out.append(clamp8(value))
+    return tuple(out)
 
 
 def write_png(path, pixels):

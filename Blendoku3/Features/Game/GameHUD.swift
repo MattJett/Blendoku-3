@@ -18,22 +18,23 @@ struct GameHUD: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.snug) {
             HStack(alignment: .center, spacing: Theme.Space.snug) {
-                CircleIconButton(systemName: "arrow.left", label: "Back", action: onBack)
+                IconButton(systemName: "arrow.left", label: "Back", action: onBack)
 
                 VStack(alignment: .leading, spacing: 2) {
                     MoodLabel("\(String(format: "%02d", puzzle.chapter.rawValue)) · \(puzzle.chapter.title)",
                               size: 9)
                     Text("Level \(puzzle.level)")
-                        .font(Theme.display(24))
-                        .kerning(-0.4)
+                        .font(Theme.display(25))
+                        .textCase(.uppercase)
+                        .tracking(0.4)
                         .foregroundStyle(Theme.textPrimary)
                 }
 
                 Spacer(minLength: 0)
 
-                CircleIconButton(systemName: "lightbulb", label: "Hint",
+                IconButton(systemName: "lightbulb", label: "Hint",
                                  tint: Theme.accent, action: onHint)
-                CircleIconButton(systemName: "arrow.counterclockwise", label: "Start over",
+                IconButton(systemName: "arrow.counterclockwise", label: "Start over",
                                  action: onReset)
             }
 

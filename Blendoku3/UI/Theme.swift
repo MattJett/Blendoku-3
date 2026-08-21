@@ -82,10 +82,15 @@ enum Theme {
     // MARK: - Geometry
 
     enum Radius {
-        /// Panels and sheets. Generous, in the moodboard's stadium idiom.
-        static let panel: CGFloat = 30
-        static let card: CGFloat = 20
-        static let chip: CGFloat = 12
+        /// Panels and sheets. Tightened from the old stadium idiom: a brutalist
+        /// surface is a slab, and a slab has corners taken off rather than
+        /// corners made of arcs.
+        static let panel: CGFloat = 22
+        static let card: CGFloat = 16
+        /// Buttons and segmented controls. The one number that decides whether
+        /// the app reads as soft or as built.
+        static let control: CGFloat = 13
+        static let chip: CGFloat = 10
     }
 
     /// A 4pt-based scale with editorial jumps at the top end.
@@ -102,14 +107,26 @@ enum Theme {
 
     // MARK: - Type ramp
 
-    /// Large, light and tightly tracked. The one oversized element on a screen.
-    static func display(_ size: CGFloat, weight: Font.Weight = .light) -> Font {
-        .system(size: size, weight: weight, design: .default)
+    /// The display face: the system grotesque at its narrowest cut and heaviest
+    /// weight, always set in caps.
+    ///
+    /// No font file ships with the app. `Font.Width.compressed` gives the
+    /// compressed cut of SF Pro, which is the closest thing iOS has to a
+    /// brutalist grotesque without licensing one — and unlike a bundled face it
+    /// carries every weight, every optical size and the full glyph set, so it
+    /// scales with Dynamic Type and never falls back to something else.
+    static func display(_ size: CGFloat, weight: Font.Weight = .black) -> Font {
+        .system(size: size, weight: weight).width(.compressed)
     }
 
     /// Running text and buttons.
     static func text(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight, design: .default)
+    }
+
+    /// Button and control labels: caps, tracked out, condensed a step.
+    static func control(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        .system(size: size, weight: weight).width(.condensed)
     }
 
     /// Numerals, counters and identifiers.
@@ -119,6 +136,9 @@ enum Theme {
 
     /// Tracking for the tracked-out micro-caps used as section labels.
     static let labelTracking: CGFloat = 1.7
+    /// Tracking for caps set at button size. Less than a micro-cap needs, since
+    /// the letters are already big enough to tell apart.
+    static let controlTracking: CGFloat = 1.1
 
     // MARK: - Helpers
 

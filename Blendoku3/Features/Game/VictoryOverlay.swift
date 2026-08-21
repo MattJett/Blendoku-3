@@ -48,8 +48,9 @@ struct VictoryOverlay: View {
                     VStack(spacing: 6) {
                         MoodLabel("Level \(puzzle.level) solved")
                         Text("Blended")
-                            .font(Theme.display(40))
-                            .kerning(-0.8)
+                            .font(Theme.display(42))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
                             .foregroundStyle(Theme.textPrimary)
                     }
 
@@ -133,7 +134,8 @@ private struct SoftPips: View {
         // plenty across a button and nothing at all across a twenty-point
         // circle; dropping the whole row into a trough gives the bumps a darker
         // field to stand out of, and costs no colour to do it.
-        .softSurface(Capsule(style: .continuous), depth: 7, pressed: true)
+        .softSurface(RoundedRectangle(cornerRadius: Theme.Radius.chip, style: .continuous),
+                     depth: 7, pressed: true)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(filled) of \(total) stars")
     }

@@ -53,6 +53,16 @@ struct Blendoku3App: App {
             settings.appearance = requested
         }
 
+        // `-uiPreviewScreen chromarcs` and friends open a screen that is
+        // otherwise several taps in, so CI can photograph it.
+        switch defaults.string(forKey: "uiPreviewScreen") {
+        case "chromarcs": router.push(.chromarcs)
+        case "collection": router.push(.collection)
+        case "levels": router.push(.levels)
+        case "arcComplete": router.push(.arcComplete(1))
+        default: break
+        }
+
         let level = defaults.integer(forKey: "uiPreviewLevel")
         guard level > 0 else { return }
         router.push(.game(min(max(level, 1), DifficultyCurve.levelCount)))

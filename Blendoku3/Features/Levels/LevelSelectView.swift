@@ -14,8 +14,12 @@ struct LevelSelectView: View {
 
             VStack(spacing: 0) {
                 ScreenHeader(title: "Levels",
-                             eyebrow: "Progress",
-                             subtitle: "\(progress.completedCount) of \(DifficultyCurve.levelCount) solved") {
+                             eyebrow: "Chromarc 01 · First Light",
+                             subtitle: "\(progress.completedCount) of \(DifficultyCurve.levelCount) solved",
+                             trailing: AnyView(
+                                IconButton(systemName: "square.stack.3d.up", label: "Chromarcs") {
+                                    router.push(.chromarcs)
+                                })) {
                     router.pop()
                 }
 

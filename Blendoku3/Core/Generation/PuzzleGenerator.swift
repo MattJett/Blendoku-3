@@ -7,14 +7,14 @@ import Foundation
 /// at a time for as long as the puzzle still has exactly one solution → add
 /// decoy tiles that provably fit nowhere.
 enum PuzzleGenerator {
-    static func puzzle(level: Int) -> Puzzle {
-        let profile = DifficultyCurve.profile(for: level)
+    static func puzzle(level: Int, arc: Int = 1) -> Puzzle {
+        let profile = DifficultyCurve.profile(for: level, arc: arc)
         // Raised from 72 with the steeper curve. The big late boards sit close
         // enough to the edge of the gamut that a seed can legitimately need a
         // hundred tries — level 69 lands on its 130th — and a level that fails
         // to generate is a level that does not exist.
         for attempt in 0..<180 {
-            var rng = SplitMix64(seed: .gameSeed(level: level, salt: UInt64(attempt)))
+            var rng = SplitMix64(seed: .gameSeed(arc: arc, level: level, salt: UInt64(attempt)))
             if let puzzle = build(profile: profile, attempt: attempt, rng: &rng) {
                 return puzzle
             }
@@ -97,7 +97,9 @@ enum PuzzleGenerator {
 
         guard let bounds = GridBounds(points: cells) else { return nil }
         return Puzzle(level: profile.level,
-                      seed: .gameSeed(level: profile.level, salt: UInt64(attempt)),
+                      arc: profile.arc,
+                      seed: .gameSeed(arc: profile.arc, level: profile.level,
+                                      salt: UInt64(attempt)),
                       chapter: profile.chapter,
                       cells: cells,
                       solution: solution,
@@ -251,7 +253,8 @@ enum PuzzleGenerator {
             Tile(id: index, color: solution[point]!, isDecoy: false)
         }
         return Puzzle(level: profile.level,
-                      seed: .gameSeed(level: profile.level, salt: 999),
+                      arc: profile.arc,
+                      seed: .gameSeed(arc: profile.arc, level: profile.level, salt: 999),
                       chapter: profile.chapter,
                       cells: cells,
                       solution: solution,

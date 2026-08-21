@@ -40,6 +40,10 @@ final class GameSettings {
     var showGridLabels = false
     /// Paper, ink, or whatever the phone is already doing.
     var appearance: Appearance = .system
+    /// Whether the first board's walkthrough has been dismissed. Persisted on
+    /// its own rather than through `persist()`, because it is set by finishing
+    /// the coaching rather than by a settings toggle.
+    var hasFinishedCoaching = false
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -50,6 +54,17 @@ final class GameSettings {
         showGridLabels = defaults.bool(forKey: Key.labels)
         appearance = (defaults.string(forKey: Key.appearance)
             .flatMap(Appearance.init(rawValue:))) ?? .system
+        hasFinishedCoaching = defaults.bool(forKey: Key.coaching)
+    }
+
+    func finishCoaching() {
+        hasFinishedCoaching = true
+        defaults.set(true, forKey: Key.coaching)
+    }
+
+    func replayCoaching() {
+        hasFinishedCoaching = false
+        defaults.set(false, forKey: Key.coaching)
     }
 
     /// Called by the settings screen after a toggle changes.
@@ -65,5 +80,6 @@ final class GameSettings {
         static let values = "blendoku.values"
         static let labels = "blendoku.labels"
         static let appearance = "blendoku.appearance"
+        static let coaching = "swatchword.coaching"
     }
 }

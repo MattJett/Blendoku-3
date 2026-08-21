@@ -18,7 +18,11 @@ struct VictoryOverlay: View {
     let puzzle: Puzzle
     let record: LevelRecord
     let hasNextLevel: Bool
+    /// The last board of the arc, with every other one behind it. The primary
+    /// action stops being "next" and becomes the end of the hundred.
+    let arcComplete: Bool
     let onNext: () -> Void
+    let onFinishArc: () -> Void
     let onReplay: () -> Void
     let onLevels: () -> Void
 
@@ -87,7 +91,8 @@ struct VictoryOverlay: View {
                             .accessibilityHint("Copies this blend as a CSS linear-gradient")
 
                             Button {
-                                library.keep(level: puzzle.level, colours: swatches)
+                                library.keep(level: puzzle.level, arc: puzzle.arc,
+                                             colours: swatches)
                                 Haptics.play(.snap)
                             } label: {
                                 Label(isKept ? "Kept" : "Keep",
@@ -107,6 +112,9 @@ struct VictoryOverlay: View {
                     VStack(spacing: Theme.Space.snug) {
                         if hasNextLevel {
                             Button("Next level") { onNext() }
+                                .buttonStyle(PillButtonStyle())
+                        } else if arcComplete {
+                            Button("Finish the arc") { onFinishArc() }
                                 .buttonStyle(PillButtonStyle())
                         }
                         HStack(spacing: Theme.Space.snug) {
@@ -131,7 +139,7 @@ struct VictoryOverlay: View {
 
     /// Keeping the same level twice replaces rather than duplicates, so the
     /// button only ever needs to say whether this board is already on the shelf.
-    private var isKept: Bool { library.saved(arc: 1, level: puzzle.level) != nil }
+    private var isKept: Bool { library.saved(arc: puzzle.arc, level: puzzle.level) != nil }
 
     private var timeText: String {
         let seconds = Int(record.seconds.rounded())

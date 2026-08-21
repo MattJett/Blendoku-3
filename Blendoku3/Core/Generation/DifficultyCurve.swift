@@ -4,6 +4,7 @@ import Foundation
 /// Keeping it in one value makes the difficulty ramp readable — and testable.
 struct DifficultyProfile: Sendable {
     let level: Int
+    let arc: Int
     let chapter: Chapter
     /// How many cells the board should end up with.
     let targetCells: Int
@@ -66,10 +67,13 @@ struct DifficultyProfile: Sendable {
 enum DifficultyCurve {
     static let levelCount = 100
 
-    static func profile(for level: Int) -> DifficultyProfile {
+    static func profile(for level: Int, arc: Int = 1) -> DifficultyProfile {
         let level = min(max(level, 1), levelCount)
         let chapter = Chapter.containing(level: level)
-        let t = Double(level - 1) / Double(levelCount - 1)
+        // An arc is a window onto this curve. Chromarc 1 spans all of it, so
+        // `progress(at:)` returns exactly (level - 1) / 99 and nothing about
+        // the first hundred levels moves.
+        let t = Chromarc.numbered(arc).progress(at: level)
 
         // Board size and colour subtlety are the same dial seen from two
         // sides. A board of n cells needs the sRGB gamut to hold n colours at
@@ -111,6 +115,7 @@ enum DifficultyCurve {
 
         return DifficultyProfile(
             level: level,
+            arc: arc,
             chapter: chapter,
             targetCells: cells,
             targetSlots: slots,

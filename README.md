@@ -4,12 +4,9 @@ A colour-blending puzzle game for iOS, in the shape of Lonely Few's *Blendoku 2*
 a board of coloured tiles with gaps in it, a tray of loose tiles, and one rule —
 every row and column has to read as an even blend from one end to the other.
 
-The Xcode target, the source directory and the bundle identifier are all still
-`Blendoku3` / `com.mattjett.blendoku3`. That is deliberate: renaming the bundle
-identifier makes iOS treat the build as a different app, which means a fresh
-install, a lost save file and re-provisioning on any device it is already
-sideloaded to. The name a player sees comes from `CFBundleDisplayName`, and that
-one says Swatchword.
+The bundle identifier is `com.mattjett.swatchword`. The Xcode target and the
+source directory are still called `Blendoku3` — that is internal plumbing, and
+renaming it churns the project file for no behavioural gain.
 
 100 levels, none of them hand-authored. Each one is generated from its own level
 number, so level 57 is the same puzzle on every device and every launch, and
@@ -59,7 +56,7 @@ things trip people up the first time:
 re-sign it with your Apple ID on the way onto the phone. The same Developer
 Mode and trust steps above apply.
 
-The bundle identifier is `com.mattjett.blendoku3`. If free provisioning refuses
+The bundle identifier is `com.mattjett.swatchword`. If free provisioning refuses
 it because someone else has registered it, change
 `PRODUCT_BUNDLE_IDENTIFIER` in the project settings to anything unique and try
 again.
@@ -208,6 +205,25 @@ case comes up constantly.
 
 Screens slide a short distance rather than the full width, over a ground
 carrying two or three slow blooms of the level's own palette.
+
+**The board has a voice.** Lightness picks a pitch, so a tile that belongs
+further along a ramp sounds further up the scale and a finished run reads as a
+rising figure — in tune, because being correct is what puts it in tune. The
+scale is a just-intonation major pentatonic: every degree is a small-integer
+ratio to the root, which is what harmonic means literally rather than
+approximately, and pentatonic has no semitones, so no two notes a player can
+produce by jabbing at tiles are close enough to clash. Only a wrong placement
+is allowed to sound wrong, and it does it by wavering — a second voice a fixed
+4.5 Hz away, beating at the same rate whatever the pitch. A fixed detune in
+cents would beat at 4 Hz on a dark tile and 21 on a light one, which is a
+gentle wobble at one end of the board and roughness at the other.
+
+Hue does not move the pitch; it sets the timbre, once per level. The board
+picks the instrument, the tile picks the note. Tones are synthesised rather
+than shipped — a hundred levels times thirteen pitches times three events is
+four thousand files nobody wants to author, and every one of them would be an
+approximation of something the app can work out exactly. The session is
+`.ambient`, so whatever you already had playing keeps playing.
 
 Everything honours **Reduce Motion**, which stills the ground and the looping
 demos.

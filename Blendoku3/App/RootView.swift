@@ -29,6 +29,12 @@ struct RootView: View {
             HowToPlayView()
         case .settings:
             SettingsView()
+        case .collection:
+            CollectionView()
+        case .chromarcs:
+            ChromarcSelectView()
+        case .arcComplete(let arc):
+            ArcCompleteView(arc: Chromarc.numbered(arc))
         }
     }
 }

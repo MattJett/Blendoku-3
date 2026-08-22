@@ -24,6 +24,13 @@ struct SettingsView: View {
                     group("Play") {
                         VStack(spacing: 0) {
                             row {
+                                Toggle(isOn: $settings.soundEnabled) {
+                                    label("Tones",
+                                          "Each tile rings at a pitch set by how light it is. A tile in the right place rings clean; one in the wrong place wavers.")
+                                }
+                            }
+                            Hairline()
+                            row {
                                 Toggle(isOn: $settings.hapticsEnabled) {
                                     label("Haptics", "A tap when a tile is picked up or lands")
                                 }
@@ -42,6 +49,7 @@ struct SettingsView: View {
                             }
                         }
                         .tint(Theme.accent)
+                        .onChange(of: settings.soundEnabled) { _, _ in settings.persist() }
                         .onChange(of: settings.hapticsEnabled) { _, _ in settings.persist() }
                         .onChange(of: settings.showColorValues) { _, _ in settings.persist() }
                         .onChange(of: settings.showGridLabels) { _, _ in settings.persist() }

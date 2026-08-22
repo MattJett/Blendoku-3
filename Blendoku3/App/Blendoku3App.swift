@@ -7,6 +7,7 @@ struct Blendoku3App: App {
     @State private var catalog = LevelCatalog()
     @State private var progress = ProgressStore()
     @State private var settings = GameSettings()
+    @State private var library = BlendLibrary()
 
     var body: some Scene {
         WindowGroup {
@@ -15,13 +16,18 @@ struct Blendoku3App: App {
                 .environment(catalog)
                 .environment(progress)
                 .environment(settings)
+                .environment(library)
                 .preferredColorScheme(settings.appearance.colorScheme)
                 .onAppear {
                     Haptics.isEnabled = settings.hapticsEnabled
+                    SoundField.shared.isEnabled = settings.soundEnabled
                     applyLaunchOverrides()
                 }
                 .onChange(of: settings.hapticsEnabled) { _, enabled in
                     Haptics.isEnabled = enabled
+                }
+                .onChange(of: settings.soundEnabled) { _, enabled in
+                    SoundField.shared.isEnabled = enabled
                 }
         }
     }
@@ -33,7 +39,7 @@ struct Blendoku3App: App {
     /// a normal launch is unaffected. CI uses it to photograph a real board on
     /// a chosen ground instead of the menu in whatever mode it happens to be:
     ///
-    ///     xcrun simctl launch <device> com.mattjett.blendoku3 \
+    ///     xcrun simctl launch <device> com.mattjett.swatchword \
     ///         -uiPreviewLevel 42 -uiPreviewAppearance paper
     ///
     /// `GameScreen` reads one more of these, `-uiPreviewSolved`, which finishes
@@ -49,6 +55,17 @@ struct Blendoku3App: App {
         if let name = defaults.string(forKey: "uiPreviewAppearance"),
            let requested = Appearance(rawValue: name.lowercased()) {
             settings.appearance = requested
+        }
+
+        // `-uiPreviewScreen chromarcs` and friends open a screen that is
+        // otherwise several taps in, so CI can photograph it.
+        switch defaults.string(forKey: "uiPreviewScreen") {
+        case "chromarcs": router.push(.chromarcs)
+        case "collection": router.push(.collection)
+        case "levels": router.push(.levels)
+        case "settings": router.push(.settings)
+        case "arcComplete": router.push(.arcComplete(1))
+        default: break
         }
 
         let level = defaults.integer(forKey: "uiPreviewLevel")

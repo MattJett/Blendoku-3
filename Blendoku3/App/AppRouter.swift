@@ -13,6 +13,9 @@ final class AppRouter {
         case game(Int)
         case howToPlay
         case settings
+        case collection
+        case chromarcs
+        case arcComplete(Int)
     }
 
     private(set) var stack: [Screen] = [.home]

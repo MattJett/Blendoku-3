@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// What you get for solving one.
 ///
@@ -17,16 +18,26 @@ struct VictoryOverlay: View {
     let puzzle: Puzzle
     let record: LevelRecord
     let hasNextLevel: Bool
+    /// The last board of the arc, with every other one behind it. The primary
+    /// action stops being "next" and becomes the end of the hundred.
+    let arcComplete: Bool
     let onNext: () -> Void
+    let onFinishArc: () -> Void
     let onReplay: () -> Void
     let onLevels: () -> Void
 
+    @Environment(BlendLibrary.self) private var library
+
     @State private var appeared = false
+    @State private var copied = false
 
     /// `paletteSwatches` hands back what it has, which for a degenerate puzzle
     /// could be a single colour. Everything below indexes into this, so pad it.
     private var swatches: [BlendColor] {
-        let drawn = puzzle.paletteSwatches(count: 7)
+        // More samples than the old seven: the ribbon is continuous now, so
+        // every extra sample is a real bend in the curve rather than another
+        // block in a row.
+        let drawn = puzzle.paletteSwatches(count: 14)
         guard let first = drawn.first else {
             return Array(repeating: BlendColor(lightness: 0.6, chroma: 0.08, hue: 40), count: 7)
         }
@@ -56,11 +67,41 @@ struct VictoryOverlay: View {
 
                     SoftPips(filled: record.stars, total: 3)
 
-                    // The palette they just rebuilt, inlaid in the panel.
-                    SwatchBar(colours: swatches, height: 34, radius: 9)
-                        .padding(5)
-                        .softSurface(RoundedRectangle(cornerRadius: 15, style: .continuous),
-                                     depth: 7, pressed: true)
+                    // The palette they just rebuilt, inlaid in the panel — and
+                    // now as one continuous ribbon rather than a row of blocks.
+                    // The cell boundaries were the puzzle; once it is solved
+                    // they are the only thing standing between the player and
+                    // the blend they made.
+                    VStack(spacing: Theme.Space.tight) {
+                        GradientRibbon(colours: swatches)
+                            .padding(6)
+                            .softSurface(RoundedRectangle(cornerRadius: 20, style: .continuous),
+                                         depth: 8, pressed: true)
+
+                        HStack(spacing: Theme.Space.snug) {
+                            Button {
+                                UIPasteboard.general.string = GradientRibbon.css(swatches)
+                                Haptics.play(.snap)
+                                withAnimation(Motion.quick) { copied = true }
+                            } label: {
+                                Label(copied ? "Copied" : "Copy CSS",
+                                      systemImage: copied ? "checkmark" : "doc.on.doc")
+                            }
+                            .buttonStyle(OutlineButtonStyle())
+                            .accessibilityHint("Copies this blend as a CSS linear-gradient")
+
+                            Button {
+                                library.keep(level: puzzle.level, arc: puzzle.arc,
+                                             colours: swatches)
+                                Haptics.play(.snap)
+                            } label: {
+                                Label(isKept ? "Kept" : "Keep",
+                                      systemImage: isKept ? "bookmark.fill" : "bookmark")
+                            }
+                            .buttonStyle(OutlineButtonStyle())
+                            .accessibilityHint("Saves this blend to your collection")
+                        }
+                    }
 
                     HStack(spacing: Theme.Space.base) {
                         Readout(value: "\(record.moves)", label: "moves", size: 17, alignment: .center)
@@ -71,6 +112,9 @@ struct VictoryOverlay: View {
                     VStack(spacing: Theme.Space.snug) {
                         if hasNextLevel {
                             Button("Next level") { onNext() }
+                                .buttonStyle(PillButtonStyle())
+                        } else if arcComplete {
+                            Button("Finish the arc") { onFinishArc() }
                                 .buttonStyle(PillButtonStyle())
                         }
                         HStack(spacing: Theme.Space.snug) {
@@ -92,6 +136,10 @@ struct VictoryOverlay: View {
             withAnimation(.spring(response: 0.52, dampingFraction: 0.82)) { appeared = true }
         }
     }
+
+    /// Keeping the same level twice replaces rather than duplicates, so the
+    /// button only ever needs to say whether this board is already on the shelf.
+    private var isKept: Bool { library.saved(arc: puzzle.arc, level: puzzle.level) != nil }
 
     private var timeText: String {
         let seconds = Int(record.seconds.rounded())

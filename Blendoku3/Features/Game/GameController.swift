@@ -34,6 +34,7 @@ final class GameController {
         selected = nil
         drag.begin(tile: tile, from: origin, size: size, at: point)
         Haptics.play(.pickUp)
+        SoundField.shared.play(.pickUp, for: tile.color)
     }
 
     func updateDrag(to point: CGPoint) {
@@ -87,6 +88,7 @@ final class GameController {
         }
         selected = tile
         Haptics.play(.select)
+        SoundField.shared.play(.pickUp, for: tile.color)
     }
 
     func tap(slot point: GridPoint) {
@@ -146,6 +148,15 @@ final class GameController {
         landed = point
         landingToken += 1
         Haptics.play(.drop)
+
+        // The board is what decides whether this rings or wavers. `place`
+        // already succeeded — the slot was legal — so the only question left is
+        // whether this is the colour that belongs in it, which is exactly the
+        // judgement the game is asking for and exactly what the ear now hears.
+        if let colour = session.colour(at: point) {
+            SoundField.shared.play(session.isCorrect(at: point) ? .settled : .unsettled,
+                                   for: colour)
+        }
     }
 
     private func refuse() {

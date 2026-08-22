@@ -201,31 +201,73 @@ struct SoftPanel<Content: View>: View {
     }
 }
 
-/// A flush run of colour with only its two ends rounded — the app's signature
-/// object, and the shape the board itself makes.
+/// The finished blend, as one continuous ribbon.
+///
+/// Discrete cells are the right object while you are *playing* — the puzzle is
+/// about judging one against the next, and the boundary is what makes the
+/// judgement possible. Once it is solved that boundary has done its job, and
+/// the only thing it still does is stand between the player and the blend they
+/// built. So the ribbon dissolves it: same colours, no edges.
+///
+/// The interpolation is done here in Oklab and handed to SwiftUI as many small
+/// stops, because a SwiftUI gradient blends in device RGB — which is the exact
+/// failure this whole game is built to avoid. Blending two Oklab-adjacent
+/// colours through sRGB bows the ramp and puts a dull band in the middle.
 @MainActor
-struct SwatchBar: View {
+struct GradientRibbon: View {
     let colours: [BlendColor]
-    var height: CGFloat = 30
-    var radius: CGFloat = 8
+    var height: CGFloat = 92
+    var radius: CGFloat = 14
+
+    /// Enough stops that the sRGB interpolation SwiftUI does *between* them is
+    /// too short to bend. Sixty-four across a phone width is under two points
+    /// per stop.
+    static let resolution = 64
+
+    nonisolated static func ramp(_ colours: [BlendColor],
+                                steps: Int = 64) -> [BlendColor] {
+        let sorted = ordered(colours)
+        guard let first = sorted.first else { return [] }
+        guard sorted.count > 1, steps > 1 else {
+            return Array(repeating: first, count: max(1, steps))
+        }
+        return (0..<steps).map { index in
+            let t = Double(index) / Double(steps - 1) * Double(sorted.count - 1)
+            let low = min(Int(t), sorted.count - 2)
+            return BlendColor.mix(sorted[low], sorted[low + 1], t - Double(low))
+        }
+    }
+
+    /// Sorted by lightness. A board is several independent shapes, so the cells
+    /// in reading order jump between gradients and would come out as a ribbon
+    /// that doubles back on itself. Lightness is the axis the generator spends
+    /// most of its budget on, so ordering by it recovers the ramp the palette
+    /// was cut from.
+    nonisolated private static func ordered(_ colours: [BlendColor]) -> [BlendColor] {
+        colours.sorted { $0.l < $1.l }
+    }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(colours.enumerated()), id: \.offset) { index, colour in
-                Rectangle()
-                    .fill(Color(colour))
-                    .frame(maxWidth: .infinity)
-                    .clipShape(
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: index == 0 ? radius : 0,
-                            bottomLeadingRadius: index == 0 ? radius : 0,
-                            bottomTrailingRadius: index == colours.count - 1 ? radius : 0,
-                            topTrailingRadius: index == colours.count - 1 ? radius : 0,
-                            style: .continuous))
-            }
+        LinearGradient(colors: Self.ramp(colours, steps: Self.resolution).map(Color.init),
+                       startPoint: .leading, endPoint: .trailing)
+            .frame(height: height)
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .accessibilityHidden(true)
+    }
+
+    /// The same ramp as a CSS declaration.
+    ///
+    /// Written out as explicit hex stops rather than as `in oklab`, so it lands
+    /// the same in any browser: with a stop every few percent there is no room
+    /// left for a differently-interpolating renderer to disagree.
+    nonisolated static func css(_ colours: [BlendColor], steps: Int = 12) -> String {
+        let sampled = ramp(colours, steps: max(2, steps))
+        guard sampled.count > 1 else { return "" }
+        let stops = sampled.enumerated().map { index, colour in
+            let percent = Double(index) / Double(sampled.count - 1) * 100
+            return "\(colour.hexString) \(String(format: "%.1f", percent))%"
         }
-        .frame(height: height)
-        .accessibilityHidden(true)
+        return "linear-gradient(90deg, " + stops.joined(separator: ", ") + ")"
     }
 }
 

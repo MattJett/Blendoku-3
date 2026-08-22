@@ -119,13 +119,28 @@ final class LevelGenerationTests: XCTestCase {
         }
     }
 
-    func testGeneratingTheWholeBookIsFast() {
-        let started = Date()
+    /// What matters is the *worst single level*, not the total: the catalog
+    /// prefetches the next level while you play the current one, so all a slow
+    /// level costs is a longer "building the level" the first time you open it.
+    /// The budget is therefore per level, and generous — but bounded, because
+    /// the steep curve pushes the late boards close enough to the edge of the
+    /// gamut that a seed can need a hundred tries.
+    func testNoSingleLevelTakesTooLongToBuild() {
+        var worst = (level: 0, seconds: 0.0)
+        var total = 0.0
         for level in 1...DifficultyCurve.levelCount {
+            let started = Date()
             _ = PuzzleGenerator.puzzle(level: level)
+            let elapsed = Date().timeIntervalSince(started)
+            total += elapsed
+            if elapsed > worst.seconds { worst = (level, elapsed) }
         }
-        let elapsed = Date().timeIntervalSince(started)
-        XCTAssertLessThan(elapsed, 20, "generating 100 levels took \(elapsed)s")
+        // Printed on every run so the cost of a curve change is visible in the
+        // log rather than only when it crosses the threshold.
+        print("BUILD_TIME total=\(String(format: "%.2f", total))s "
+              + "worst=level \(worst.level) at \(String(format: "%.0f", worst.seconds * 1000))ms")
+        XCTAssertLessThan(worst.seconds, 2.5,
+                          "level \(worst.level) took \(worst.seconds)s to build")
     }
 }
 

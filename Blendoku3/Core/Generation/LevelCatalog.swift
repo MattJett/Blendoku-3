@@ -7,33 +7,43 @@ import Observation
 @MainActor
 @Observable
 final class LevelCatalog {
-    private var cache: [Int: Puzzle] = [:]
-    private var inFlight: Set<Int> = []
+    /// Keyed by arc as well as level: two arcs share level numbers but not
+    /// boards, and a cache that forgot which was which would hand the player
+    /// the wrong puzzle.
+    struct Key: Hashable, Sendable {
+        var arc: Int
+        var level: Int
+    }
+
+    private var cache: [Key: Puzzle] = [:]
+    private var inFlight: Set<Key> = []
 
     var levelCount: Int { DifficultyCurve.levelCount }
 
-    func cached(_ level: Int) -> Puzzle? { cache[level] }
+    func cached(_ level: Int, arc: Int = 1) -> Puzzle? { cache[Key(arc: arc, level: level)] }
 
-    func puzzle(for level: Int) async -> Puzzle {
-        if let existing = cache[level] { return existing }
+    func puzzle(for level: Int, arc: Int = 1) async -> Puzzle {
+        let key = Key(arc: arc, level: level)
+        if let existing = cache[key] { return existing }
         let built = await Task.detached(priority: .userInitiated) {
-            PuzzleGenerator.puzzle(level: level)
+            PuzzleGenerator.puzzle(level: level, arc: arc)
         }.value
-        cache[level] = built
+        cache[key] = built
         return built
     }
 
     /// Warms the next couple of levels while the player is busy with this one.
-    func prefetch(after level: Int, count: Int = 2) {
+    func prefetch(after level: Int, arc: Int = 1, count: Int = 2) {
         for next in (level + 1)...(level + count) where next <= levelCount {
-            guard cache[next] == nil, !inFlight.contains(next) else { continue }
-            inFlight.insert(next)
+            let key = Key(arc: arc, level: next)
+            guard cache[key] == nil, !inFlight.contains(key) else { continue }
+            inFlight.insert(key)
             Task {
                 let built = await Task.detached(priority: .background) {
-                    PuzzleGenerator.puzzle(level: next)
+                    PuzzleGenerator.puzzle(level: next, arc: arc)
                 }.value
-                cache[next] = built
-                inFlight.remove(next)
+                cache[key] = built
+                inFlight.remove(key)
             }
         }
     }

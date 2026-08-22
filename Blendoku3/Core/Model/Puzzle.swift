@@ -21,6 +21,11 @@ struct PuzzleRun: Hashable, Sendable {
 /// and the tiles that have to be placed into the rest.
 struct Puzzle: Identifiable, Sendable {
     let level: Int
+    /// Which Chromarc this board belongs to. Carried on the puzzle rather than
+    /// passed alongside it, so anything holding a board — the victory panel
+    /// saving a blend, a record being written — knows where it came from
+    /// without the caller having to remember.
+    var arc: Int = 1
     let seed: UInt64
     let chapter: Chapter
     /// Every occupied cell, in reading order.
@@ -37,7 +42,7 @@ struct Puzzle: Identifiable, Sendable {
     let tiles: [Tile]
     let bounds: GridBounds
 
-    var id: Int { level }
+    var id: Int { arc * 1000 + level }
     var columns: Int { bounds.width }
     var rows: Int { bounds.height }
     var decoyCount: Int { tiles.filter(\.isDecoy).count }

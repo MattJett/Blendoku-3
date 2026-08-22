@@ -56,3 +56,74 @@ final class ColorMathTests: XCTestCase {
         XCTAssertTrue(BlendColor(lightness: 0.9, chroma: 0.005, hue: 0).readableName.contains("very light"))
     }
 }
+
+/// The finished blend, as a ribbon and as CSS.
+final class GradientRibbonTests: XCTestCase {
+    private let palette = [
+        BlendColor(lightness: 0.70, chroma: 0.10, hue: 40),
+        BlendColor(lightness: 0.30, chroma: 0.10, hue: 40),
+        BlendColor(lightness: 0.50, chroma: 0.10, hue: 40),
+    ]
+
+    func testRampRunsDarkToLight() {
+        // The cells of a multi-shape board arrive in reading order, which jumps
+        // between gradients. Without the sort the ribbon doubles back.
+        let ramp = GradientRibbon.ramp(palette, steps: 16)
+        XCTAssertEqual(ramp.count, 16)
+        for index in 1..<ramp.count {
+            XCTAssertGreaterThanOrEqual(ramp[index].l, ramp[index - 1].l - 1e-9,
+                                        "step \(index) went backwards")
+        }
+        XCTAssertEqual(ramp.first!.l, 0.30, accuracy: 1e-9)
+        XCTAssertEqual(ramp.last!.l, 0.70, accuracy: 1e-9)
+    }
+
+    func testRampSurvivesDegenerateInput() {
+        XCTAssertTrue(GradientRibbon.ramp([], steps: 8).isEmpty)
+        let flat = GradientRibbon.ramp([palette[0]], steps: 8)
+        XCTAssertEqual(flat.count, 8)
+        XCTAssertTrue(flat.allSatisfy { $0.l == palette[0].l })
+    }
+
+    func testCSSIsAWellFormedGradient() {
+        let css = GradientRibbon.css(palette, steps: 5)
+        XCTAssertTrue(css.hasPrefix("linear-gradient(90deg, "), css)
+        XCTAssertTrue(css.hasSuffix(")"), css)
+        XCTAssertEqual(css.components(separatedBy: "#").count - 1, 5, css)
+        XCTAssertTrue(css.contains("0.0%"), css)
+        XCTAssertTrue(css.contains("100.0%"), css)
+    }
+
+    func testCSSStopsAreEveryColourInOrder() {
+        let css = GradientRibbon.css(palette, steps: 3)
+        let expected = GradientRibbon.ramp(palette, steps: 3).map(\.hexString)
+        for hex in expected {
+            XCTAssertTrue(css.contains(hex), "\(hex) missing from \(css)")
+        }
+    }
+}
+
+/// Saved blends are stored as text, so the text has to survive the round trip.
+final class HexRoundTripTests: XCTestCase {
+    func testHexParsesBackToTheSameEightBitColour() {
+        for hue in stride(from: 0.0, to: 360.0, by: 23.0) {
+            for lightness in [0.18, 0.42, 0.61, 0.88] {
+                let original = BlendColor(lightness: lightness, chroma: 0.09, hue: hue)
+                    .clippedToGamut()
+                guard let parsed = BlendColor(hex: original.hexString) else {
+                    return XCTFail("could not parse \(original.hexString)")
+                }
+                XCTAssertEqual(parsed.hexString, original.hexString)
+            }
+        }
+    }
+
+    func testHexAcceptsBothSpellingsAndRejectsJunk() {
+        XCTAssertEqual(BlendColor(hex: "#FF8800")?.hexString, "#FF8800")
+        XCTAssertEqual(BlendColor(hex: "ff8800")?.hexString, "#FF8800")
+        XCTAssertEqual(BlendColor(hex: "  #ff8800 ")?.hexString, "#FF8800")
+        XCTAssertNil(BlendColor(hex: "#FFF"))
+        XCTAssertNil(BlendColor(hex: "#GGGGGG"))
+        XCTAssertNil(BlendColor(hex: ""))
+    }
+}

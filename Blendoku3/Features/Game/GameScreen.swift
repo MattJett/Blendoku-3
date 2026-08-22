@@ -32,7 +32,11 @@ struct GameScreen: View {
                 VictoryOverlay(puzzle: controller.session.puzzle,
                                record: record,
                                hasNextLevel: level < DifficultyCurve.levelCount,
+                               arcComplete: progress.completedCount >= DifficultyCurve.levelCount,
                                onNext: { router.replaceTop(with: .game(level + 1)) },
+                               onFinishArc: {
+                                   router.replaceTop(with: .arcComplete(controller.session.puzzle.arc))
+                               },
                                onReplay: { replay(controller) },
                                onLevels: { router.replaceTop(with: .levels) })
                     .transition(.opacity)
@@ -55,6 +59,14 @@ struct GameScreen: View {
                 .padding(.vertical, Theme.Space.base)
                 .frame(maxHeight: .infinity)
                 .modifier(Shake(trigger: controller.shakeToken))
+
+            // Above the tray rather than over it: every step the walkthrough
+            // describes happens in the tray or on the board, and covering the
+            // thing being explained is the usual way this sort of card fails.
+            if isCoaching(controller) {
+                CoachOverlay(step: coachStep(controller)) { settings.finishCoaching() }
+                    .padding(.bottom, Theme.Space.snug)
+            }
 
             // Flush to the bottom edge — the shelf is the floor of the screen,
             // not a card resting on it.
@@ -89,6 +101,28 @@ struct GameScreen: View {
         }
     }
 
+    // MARK: - Coaching
+
+    /// Only the very first board of the first arc, and only until it is either
+    /// finished or skipped.
+    private func isCoaching(_ controller: GameController) -> Bool {
+        level == 1
+            && controller.session.puzzle.arc == 1
+            && !settings.hasFinishedCoaching
+            && !controller.session.isSolved
+    }
+
+    /// Derived from what the player has actually done rather than from a step
+    /// counter the card advances itself. The walkthrough cannot get ahead of
+    /// them, and the last step is dismissed by solving the board rather than by
+    /// tapping "done" on a description of solving the board.
+    private func coachStep(_ controller: GameController) -> CoachOverlay.Step {
+        let session = controller.session
+        if session.puzzle.slots.contains(where: { session.tile(at: $0) != nil }) { return .read }
+        if controller.selected != nil || controller.drag.payload != nil { return .drop }
+        return .pickUp
+    }
+
     /// Tray tiles track the board's tile size so the two never look unrelated,
     /// but stay tappable on a crowded level. A shade smaller than the board's,
     /// because each one now carries a well around it — the recess is what
@@ -107,6 +141,13 @@ struct GameScreen: View {
         showVictory = false
         record = nil
         router.backdropPalette = puzzle.paletteSwatches(count: 4)
+
+        // The board picks the instrument, the tile picks the note — so the
+        // whole tone table is rendered here, off the main thread, well before
+        // anyone can touch a tile.
+        let profile = DifficultyCurve.profile(for: level, arc: puzzle.arc)
+        SoundField.shared.prepare(hue: profile.baseHue,
+                                  chroma: 0.16 * profile.chromaFraction.upperBound)
         progress.markPlayed(level: level)
         catalog.prefetch(after: level)
 
@@ -131,6 +172,7 @@ struct GameScreen: View {
     private func finish(_ controller: GameController) {
         let session = controller.session
         controller.celebrate()
+        if level == 1 { settings.finishCoaching() }
 
         let outcome = LevelRecord(level: level,
                                   moves: session.moves,

@@ -125,6 +125,21 @@ extension BlendColor {
     /// instead brings it to ~1e-14. The forward direction — the one that puts
     /// colour on screen — is untouched, so nothing the generator produces
     /// moves by a bit.
+    /// Reads a `#RRGGBB` string back into a colour.
+    ///
+    /// The inverse of `hexString`, and the reason a saved blend can be stored
+    /// as text: eight bits a channel is a lossy record of an Oklab colour, but
+    /// it is exactly the colour that was on the screen, which is the one the
+    /// player chose to keep.
+    init?(hex: String) {
+        var text = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if text.hasPrefix("#") { text.removeFirst() }
+        guard text.count == 6, let value = UInt32(text, radix: 16) else { return nil }
+        self.init(rgb: RGBComponents(red: Double((value >> 16) & 0xFF) / 255,
+                                     green: Double((value >> 8) & 0xFF) / 255,
+                                     blue: Double(value & 0xFF) / 255))
+    }
+
     init(rgb: RGBComponents) {
         let r = BlendColor.decodeSRGB(rgb.red)
         let g = BlendColor.decodeSRGB(rgb.green)

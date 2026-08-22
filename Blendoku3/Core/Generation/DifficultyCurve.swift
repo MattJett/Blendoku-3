@@ -4,6 +4,7 @@ import Foundation
 /// Keeping it in one value makes the difficulty ramp readable — and testable.
 struct DifficultyProfile: Sendable {
     let level: Int
+    let arc: Int
     let chapter: Chapter
     /// How many cells the board should end up with.
     let targetCells: Int
@@ -54,7 +55,7 @@ struct DifficultyProfile: Sendable {
 
     /// 0...1, shown to the player as a row of pips.
     var difficultyScore: Double {
-        let size = Double(targetSlots - 2) / 14
+        let size = Double(targetSlots - 2) / 36
         let subtlety = (0.210 - minStep) / 0.152
         let clutter = Double(decoyCount) / 4
         let spread = Double(componentCount - 1) / 3
@@ -66,19 +67,30 @@ struct DifficultyProfile: Sendable {
 enum DifficultyCurve {
     static let levelCount = 100
 
-    static func profile(for level: Int) -> DifficultyProfile {
+    static func profile(for level: Int, arc: Int = 1) -> DifficultyProfile {
         let level = min(max(level, 1), levelCount)
         let chapter = Chapter.containing(level: level)
-        let t = Double(level - 1) / Double(levelCount - 1)
+        // An arc is a window onto this curve. Chromarc 1 spans all of it, so
+        // `progress(at:)` returns exactly (level - 1) / 99 and nothing about
+        // the first hundred levels moves.
+        let t = Chromarc.numbered(arc).progress(at: level)
 
-        // Boards stay small while the steps are still coarse — a long line
-        // needs more colour space than a coarse step leaves — and grow once
-        // the palette has tightened enough to afford the length.
-        let cells = 3 + Int((23 * pow(t, 1.6)).rounded())
-        let slotRatio = 0.56 + 0.22 * t
-        let slots = min(14, max(2, Int((Double(cells) * slotRatio).rounded())))
+        // Board size and colour subtlety are the same dial seen from two
+        // sides. A board of n cells needs the sRGB gamut to hold n colours at
+        // least `minStep` apart, so the only way to afford a big board is to
+        // let the steps get fine — which is also what makes it hard. Pushing
+        // size up without pulling `minStep` down does not produce a harder
+        // game, it produces a generator that fails: at the old step curve,
+        // asking for these boards left eight levels in the fifties and sixties
+        // with no legal colouring at all.
+        //
+        // So the steps now shrink on a much steeper curve than before, and the
+        // board grows to match. The two together are what makes the difficulty
+        // compound rather than creep.
+        let cells = 3 + Int((57 * pow(t, 1.45)).rounded())
+        let slots = min(38, max(2, Int((Double(cells) * 0.55).rounded())))
 
-        let minStep = 0.058 + 0.152 * pow(1 - t, 1.9)
+        let minStep = 0.058 + 0.152 * pow(1 - t, 2.6)
         let maxStep = minStep * (1.75 - 0.45 * t)
 
         let decoys: Int
@@ -90,7 +102,7 @@ enum DifficultyCurve {
         default: decoys = 4
         }
 
-        let components = componentCount(for: level, cells: cells)
+        let components = componentCount(for: level, cells: cells, t: t)
 
         // The golden angle keeps consecutive levels far apart on the hue wheel
         // while still visiting every hue across the hundred.
@@ -99,10 +111,11 @@ enum DifficultyCurve {
         // A run of n tiles has to travel (n-1) steps through colour space, and
         // there is only so much of it. Long lines therefore arrive only once
         // the steps have become small.
-        let maxSpan = min(9, max(3, min(3 + Int((6 * t).rounded()), Int(0.72 / minStep) + 1)))
+        let maxSpan = min(11, max(3, min(3 + Int((8 * t).rounded()), Int(0.72 / minStep) + 1)))
 
         return DifficultyProfile(
             level: level,
+            arc: arc,
             chapter: chapter,
             targetCells: cells,
             targetSlots: slots,
@@ -121,21 +134,31 @@ enum DifficultyCurve {
         )
     }
 
-    private static func componentCount(for level: Int, cells: Int) -> Int {
-        let wanted: Int
-        switch level {
-        case ...36: wanted = 1
-        case ...52: wanted = level % 4 == 0 ? 1 : 2
-        case ...70: wanted = level % 5 == 0 ? 3 : 2
-        case ...86: wanted = level % 3 == 0 ? 2 : 3
-        default: wanted = level % 2 == 0 ? 3 : 4
-        }
-        return max(1, min(wanted, cells / 3))
+    /// How many independent shapes share one tray.
+    ///
+    /// Driven by board size rather than by level number, because the thing it
+    /// actually controls is whether the requested cells can be *reached*: a
+    /// single shape is capped by `maxSpan`, so a board bigger than one shape
+    /// can hold simply comes out short. The old table held this at one shape
+    /// until level 36, which is why the first third of the game stayed at three
+    /// to five cells no matter what size was asked for.
+    ///
+    /// The divisor grows with the level so late boards are a few large shapes
+    /// rather than a scatter of small ones — by then the steps are fine enough
+    /// for a shape to be large on its own.
+    private static func componentCount(for level: Int, cells: Int, t: Double) -> Int {
+        let divisor = 4.0 + 6.0 * t
+        let wanted = max(1, Int((Double(cells) / divisor).rounded()))
+        return max(1, min(min(wanted, 6), cells / 3))
     }
 
     private static func archetypes(for chapter: Chapter) -> [ShapeArchetype] {
         switch chapter {
-        case .firstLight: [.row, .column]
+        // Three cells is three cells, so the opening chapter varies the *shape*
+        // instead of the size: a run, a run turned on its side, and a corner.
+        // Orientation is drawn per level on top of this, so consecutive boards
+        // never point the same way.
+        case .firstLight: [.row, .column, .elbow]
         case .turningPoint: [.row, .column, .elbow, .tee]
         case .crossroads: [.elbow, .tee, .cross, .staircase]
         case .lattice: [.block, .plusGrid, .cross, .tee]

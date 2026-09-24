@@ -40,11 +40,16 @@ struct Chromarc: Identifiable, Hashable, Sendable {
     /// lightness as the boards get subtler. So the ribbon is built as exactly
     /// that — one diagonal through the colour solid — and comes out smooth
     /// because it is smooth, rather than because it has been sorted.
-    func previewRamp(steps: Int = 48) -> [BlendColor] {
+    ///
+    /// `lightness` narrows the climb for places that set type over the ramp —
+    /// the home screen's play block keeps white lettering readable by never
+    /// letting the ramp get paler than its lower half.
+    func previewRamp(steps: Int = 48, lightness: ClosedRange<Double> = 0.30...0.72) -> [BlendColor] {
         let mid = DifficultyCurve.profile(for: DifficultyCurve.levelCount / 2, arc: number)
+        let span = lightness.upperBound - lightness.lowerBound
         return (0..<steps).map { index in
             let t = Double(index) / Double(max(1, steps - 1))
-            return BlendColor(lightness: 0.30 + 0.42 * t,
+            return BlendColor(lightness: lightness.lowerBound + span * t,
                               chroma: min(0.115 * mid.chromaFraction.upperBound,
                                           mid.maxCellChroma),
                               hue: t * 360)
@@ -79,5 +84,40 @@ struct Chromarc: Identifiable, Hashable, Sendable {
 
     static func numbered(_ number: Int) -> Chromarc {
         all.first { $0.number == number } ?? .first
+    }
+
+    // MARK: - Standing
+
+    /// Where the player stands with an arc, which the chooser shows as depth.
+    enum Standing: Equatable, Sendable {
+        /// All hundred solved: pressed into the page like a stamp.
+        case done
+        /// The one being played: the only card with colour and a name.
+        case current
+        /// Not reached yet, or not built yet: raised but grey, name withheld.
+        case locked
+    }
+
+    /// Every arc's standing, given how many of each are solved.
+    ///
+    /// Arcs are taken in order. The first playable one that is not finished is
+    /// current; everything after it is locked; anything unbuilt is locked
+    /// regardless. When every built arc is done there is no current one, and
+    /// that is the honest answer until the next arc exists.
+    static func standings(_ arcs: [Chromarc] = all,
+                          solved: (Chromarc) -> Int) -> [Int: Standing] {
+        var standings: [Int: Standing] = [:]
+        var foundCurrent = false
+        for arc in arcs.sorted(by: { $0.number < $1.number }) {
+            if !arc.isPlayable || foundCurrent {
+                standings[arc.number] = .locked
+            } else if solved(arc) >= DifficultyCurve.levelCount {
+                standings[arc.number] = .done
+            } else {
+                standings[arc.number] = .current
+                foundCurrent = true
+            }
+        }
+        return standings
     }
 }

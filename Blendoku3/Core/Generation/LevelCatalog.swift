@@ -15,8 +15,12 @@ final class LevelCatalog {
         var level: Int
     }
 
-    private var cache: [Key: Puzzle] = [:]
-    private var inFlight: Set<Key> = []
+    @ObservationIgnored private var cache: [Key: Puzzle] = [:]
+    /// Boards being built right now. Asking for one that is already on its
+    /// way waits for that build instead of starting a second — which is what
+    /// used to happen whenever the player tapped Next faster than the
+    /// prefetch finished.
+    @ObservationIgnored private var pending: [Key: Task<Puzzle, Never>] = [:]
 
     var levelCount: Int { DifficultyCurve.levelCount }
 
@@ -25,26 +29,31 @@ final class LevelCatalog {
     func puzzle(for level: Int, arc: Int = 1) async -> Puzzle {
         let key = Key(arc: arc, level: level)
         if let existing = cache[key] { return existing }
-        let built = await Task.detached(priority: .userInitiated) {
-            PuzzleGenerator.puzzle(level: level, arc: arc)
-        }.value
-        cache[key] = built
-        return built
+        let task = pending[key] ?? build(key, priority: .userInitiated)
+        return await task.value
     }
 
     /// Warms the next couple of levels while the player is busy with this one.
     func prefetch(after level: Int, arc: Int = 1, count: Int = 2) {
-        for next in (level + 1)...(level + count) where next <= levelCount {
+        guard level < levelCount else { return }
+        for next in (level + 1)...min(level + count, levelCount) {
             let key = Key(arc: arc, level: next)
-            guard cache[key] == nil, !inFlight.contains(key) else { continue }
-            inFlight.insert(key)
-            Task {
-                let built = await Task.detached(priority: .background) {
-                    PuzzleGenerator.puzzle(level: next, arc: arc)
-                }.value
-                cache[key] = built
-                inFlight.remove(key)
-            }
+            guard cache[key] == nil, pending[key] == nil else { continue }
+            _ = build(key, priority: .utility)
         }
+    }
+
+    private func build(_ key: Key, priority: TaskPriority) -> Task<Puzzle, Never> {
+        let generation = Task.detached(priority: priority) {
+            PuzzleGenerator.puzzle(level: key.level, arc: key.arc)
+        }
+        let task = Task { @MainActor [weak self] () -> Puzzle in
+            let built = await generation.value
+            self?.cache[key] = built
+            self?.pending[key] = nil
+            return built
+        }
+        pending[key] = task
+        return task
     }
 }

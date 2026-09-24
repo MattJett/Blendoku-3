@@ -91,6 +91,7 @@ final class SoundField {
         generation += 1
         let token = generation
         let events: [Tuning.Event] = [.pickUp, .settled, .unsettled]
+        let rate = Self.sampleRate
 
         renderQueue.async { [weak self] in
             var built: [Key: [Float]] = [:]
@@ -98,7 +99,7 @@ final class SoundField {
                 for event in events {
                     let spec = Tuning.voice(step: step, event: event, warmth: warmth)
                     built[Key(step: step, event: event)] =
-                        ToneRenderer.render(spec, sampleRate: Self.sampleRate)
+                        ToneRenderer.render(spec, sampleRate: rate)
                 }
             }
             Task { @MainActor in self?.install(built, token: token) }

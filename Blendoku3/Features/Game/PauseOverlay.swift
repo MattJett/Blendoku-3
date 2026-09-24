@@ -30,69 +30,71 @@ struct PauseOverlay: View {
                 .contentShape(Rectangle())
                 .onTapGesture {}
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Space.base) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        MonoLabel("Level \(String(format: "%03d", puzzle.level)) · \(puzzle.chapter.title)")
-                        Text("Paused")
-                            .font(Theme.display(64))
-                            .textCase(.uppercase)
-                            .tracking(0.6)
-                            .carved()
-                            .accessibilityAddTraits(.isHeader)
-                    }
-
-                    HStack(spacing: Theme.Space.wide) {
-                        Readout(value: clock, label: "time")
-                        Readout(value: "\(moves)", label: "moves")
-                        Readout(value: "\(remaining)", label: "left")
-                        Spacer(minLength: 0)
-                    }
-
-                    Button(action: onResume) {
-                        SlabLabel(title: "Resume", tint: Theme.accent, size: 24)
-                    }
-                    .buttonStyle(SlabButtonStyle(depth: 12))
-                    .accessibilityIdentifier("pause.resume")
-
-                    HStack(spacing: Theme.Space.snug) {
-                        Button {
-                            if moves > 0 { confirmingRestart = true } else { onRestart() }
-                        } label: {
-                            SlabLabel(title: "Restart", size: 16)
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Space.base) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            MonoLabel("Level \(String(format: "%03d", puzzle.level)) · \(puzzle.chapter.title)")
+                            Text("Paused")
+                                .font(Theme.display(64))
+                                .textCase(.uppercase)
+                                .tracking(0.6)
+                                .carved()
+                                .accessibilityAddTraits(.isHeader)
                         }
-                        .buttonStyle(SlabButtonStyle(depth: 8))
-                        .accessibilityIdentifier("pause.restart")
 
-                        Button(action: onHowToPlay) {
-                            SlabLabel(title: "How to play", size: 16)
+                        HStack(spacing: Theme.Space.wide) {
+                            Readout(value: clock, label: "time")
+                            Readout(value: "\(moves)", label: "moves")
+                            Readout(value: "\(remaining)", label: "left")
+                            Spacer(minLength: 0)
                         }
-                        .buttonStyle(SlabButtonStyle(depth: 8))
-                        .accessibilityIdentifier("pause.howToPlay")
+
+                        Button(action: onResume) {
+                            SlabLabel(title: "Resume", tint: Theme.accent, size: 24)
+                        }
+                        .buttonStyle(SlabButtonStyle(depth: 12))
+                        .accessibilityIdentifier("pause.resume")
+
+                        HStack(spacing: Theme.Space.snug) {
+                            Button {
+                                if moves > 0 { confirmingRestart = true } else { onRestart() }
+                            } label: {
+                                SlabLabel(title: "Restart", size: 16)
+                            }
+                            .buttonStyle(SlabButtonStyle(depth: 8))
+                            .accessibilityIdentifier("pause.restart")
+
+                            Button(action: onHowToPlay) {
+                                SlabLabel(title: "How to play", size: 16)
+                            }
+                            .buttonStyle(SlabButtonStyle(depth: 8))
+                            .accessibilityIdentifier("pause.howToPlay")
+                        }
+
+                        HStack(spacing: Theme.Space.snug) {
+                            Button(action: onLevels) {
+                                SlabLabel(title: "Levels", size: 16)
+                            }
+                            .buttonStyle(SlabButtonStyle(depth: 8))
+                            .accessibilityIdentifier("pause.levels")
+
+                            Button(action: onHome) {
+                                SlabLabel(title: "Home", size: 16)
+                            }
+                            .buttonStyle(SlabButtonStyle(depth: 8))
+                            .accessibilityIdentifier("pause.home")
+                        }
+
+                        switches
                     }
-
-                    HStack(spacing: Theme.Space.snug) {
-                        Button(action: onLevels) {
-                            SlabLabel(title: "Levels", size: 16)
-                        }
-                        .buttonStyle(SlabButtonStyle(depth: 8))
-                        .accessibilityIdentifier("pause.levels")
-
-                        Button(action: onHome) {
-                            SlabLabel(title: "Home", size: 16)
-                        }
-                        .buttonStyle(SlabButtonStyle(depth: 8))
-                        .accessibilityIdentifier("pause.home")
-                    }
-
-                    switches
+                    .padding(.horizontal, Theme.Space.margin)
+                    .padding(.vertical, Theme.Space.wide)
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .leading)
                 }
-                .padding(.horizontal, Theme.Space.margin)
-                .padding(.vertical, Theme.Space.vast)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .scrollIndicators(.hidden)
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize)
         }
         .confirmationDialog("Start this board over?", isPresented: $confirmingRestart,
                             titleVisibility: .visible) {

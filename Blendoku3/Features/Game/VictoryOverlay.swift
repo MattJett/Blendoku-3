@@ -55,21 +55,25 @@ struct VictoryOverlay: View {
                 .contentShape(Rectangle())
                 .onTapGesture {}
 
-            ScrollView {
-                VStack(spacing: Theme.Space.base) {
-                    header
-                    SoftPips(filled: record.stars, total: 3)
-                    ribbon
-                    readouts
-                    secondary
-                    primary
+            // Centred when it fits, scrolling when it does not — a small
+            // phone at a large text size still reaches Next.
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(spacing: Theme.Space.base) {
+                        header
+                        SoftPips(filled: record.stars, total: 3)
+                        ribbon
+                        readouts
+                        secondary
+                        primary
+                    }
+                    .padding(.horizontal, Theme.Space.margin)
+                    .padding(.vertical, Theme.Space.wide)
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height)
                 }
-                .padding(.horizontal, Theme.Space.margin)
-                .padding(.vertical, Theme.Space.wide)
-                .frame(maxWidth: .infinity)
+                .scrollIndicators(.hidden)
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize)
             .scaleEffect(appeared ? 1 : 0.97)
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 20)

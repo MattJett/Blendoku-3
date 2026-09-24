@@ -18,9 +18,9 @@ struct TitleView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            // Six cells of crossword across roughly three fifths of the
-            // width, capped so it never becomes a banner on a big phone.
-            let cell = min(44, (proxy.size.width - Theme.Space.margin * 2) * 0.60 / 6)
+            // Six columns across a little over half the width, capped so it
+            // never becomes a banner on a big phone.
+            let cell = min(58, (proxy.size.width - Theme.Space.margin * 2) * 0.58 / (6 * 0.66))
 
             ZStack {
                 VStack(spacing: 0) {

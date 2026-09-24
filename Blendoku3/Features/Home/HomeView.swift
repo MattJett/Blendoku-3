@@ -60,7 +60,7 @@ struct HomeView: View {
     /// with the running tallies set opposite it as instrument readouts.
     private var masthead: some View {
         HStack(alignment: .top, spacing: Theme.Space.base) {
-            Wordmark(cell: 21)
+            Wordmark(cell: 27)
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: Theme.Space.snug) {
                 tally(String(format: "%03d", progress.completedCount), "Solved")

@@ -11,9 +11,10 @@ import SwiftUI
 struct Carved: ViewModifier {
     enum Strength {
         /// Barely there: ground-coloured letters read by their edges alone.
-        /// For the wordmark, which is decoration and names itself to
-        /// VoiceOver separately.
         case whisper
+        /// Half-inked: the recess reads clearly but is still plainly a cut
+        /// in the page rather than print on it. For the wordmark.
+        case engrave
         /// Inked in the recess, so it reads at a glance. For titles.
         case stamp
     }
@@ -27,6 +28,7 @@ struct Carved: ViewModifier {
         if let tint { return tint }
         switch strength {
         case .whisper: return Theme.carveFill
+        case .engrave: return Theme.textPrimary.opacity(0.58)
         case .stamp: return Theme.textPrimary.opacity(0.84)
         }
     }
@@ -60,11 +62,13 @@ extension View {
 /// where two blends cross.
 ///
 /// Every letter sits centred in an equal cell, so the down word stays locked
-/// under the W however the compressed face spaces its letters.
+/// under the W however the compressed face spaces its letters. The cells are
+/// narrower than they are tall, like the letters: square cells spaced a
+/// compressed face out to S W A T C H, which stopped reading as a word.
 @MainActor
 struct Wordmark: View {
-    /// The side of one crossword cell. The whole mark is six cells wide and
-    /// four tall, so this is the only size it needs.
+    /// The mark's letter height, roughly. A cell is about two thirds of this
+    /// wide, so the whole mark is four of these tall and four wide.
     var cell: CGFloat = 40
     /// Inlays the shared W in the accent. Used once, on the title page.
     var marksCrossing = false
@@ -83,7 +87,7 @@ struct Wordmark: View {
             }
             ForEach(Array(Self.down.enumerated()), id: \.offset) { _, letter in
                 glyph(letter, isCrossing: false)
-                    .padding(.leading, cell * CGFloat(Self.crossing))
+                    .padding(.leading, column * CGFloat(Self.crossing))
             }
         }
         .fixedSize()
@@ -92,11 +96,14 @@ struct Wordmark: View {
         .accessibilityAddTraits(.isHeader)
     }
 
+    private var column: CGFloat { cell * 0.66 }
+    private var row: CGFloat { cell * 0.90 }
+
     private func glyph(_ letter: Character, isCrossing: Bool) -> some View {
         Text(String(letter))
             .font(Theme.display(cell * 1.04, weight: .black))
-            .carved(.whisper, tint: isCrossing && marksCrossing ? Theme.accent : nil)
-            .frame(width: cell, height: cell * 0.92)
+            .carved(.engrave, tint: isCrossing && marksCrossing ? Theme.accent : nil)
+            .frame(width: column, height: row)
     }
 }
 

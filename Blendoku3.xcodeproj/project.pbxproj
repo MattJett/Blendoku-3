@@ -9,6 +9,7 @@
 /* Begin PBXFileReference section */
 		BD00000000000000000000A6 /* Blendoku3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Blendoku3.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD00000000000000000000A7 /* Blendoku3Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Blendoku3Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BD00000000000000000000AA /* Blendoku3UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Blendoku3UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -20,6 +21,11 @@
 		BD00000000000000000000A9 /* Blendoku3Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Blendoku3Tests;
+			sourceTree = "<group>";
+		};
+		BD00000000000000000000AB /* Blendoku3UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Blendoku3UITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -39,6 +45,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BD00000000000000000000B8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -47,6 +60,7 @@
 			children = (
 				BD00000000000000000000A8 /* Blendoku3 */,
 				BD00000000000000000000A9 /* Blendoku3Tests */,
+				BD00000000000000000000AB /* Blendoku3UITests */,
 				BD00000000000000000000A3 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -56,6 +70,7 @@
 			children = (
 				BD00000000000000000000A6 /* Blendoku3.app */,
 				BD00000000000000000000A7 /* Blendoku3Tests.xctest */,
+				BD00000000000000000000AA /* Blendoku3UITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -104,6 +119,27 @@
 			productReference = BD00000000000000000000A7 /* Blendoku3Tests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		BD00000000000000000000AC /* Blendoku3UITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BD00000000000000000000C4 /* Build configuration list for PBXNativeTarget "Blendoku3UITests" */;
+			buildPhases = (
+				BD00000000000000000000B7 /* Sources */,
+				BD00000000000000000000B8 /* Frameworks */,
+				BD00000000000000000000B9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BD00000000000000000000E3 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BD00000000000000000000AB /* Blendoku3UITests */,
+			);
+			name = Blendoku3UITests;
+			productName = Blendoku3UITests;
+			productReference = BD00000000000000000000AA /* Blendoku3UITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -118,6 +154,10 @@
 						CreatedOnToolsVersion = 16.0;
 					};
 					BD00000000000000000000A5 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = BD00000000000000000000A4;
+					};
+					BD00000000000000000000AC = {
 						CreatedOnToolsVersion = 16.0;
 						TestTargetID = BD00000000000000000000A4;
 					};
@@ -139,6 +179,7 @@
 			targets = (
 				BD00000000000000000000A4 /* Blendoku3 */,
 				BD00000000000000000000A5 /* Blendoku3Tests */,
+				BD00000000000000000000AC /* Blendoku3UITests */,
 			);
 		};
 /* End PBXProject section */
@@ -152,6 +193,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		BD00000000000000000000B6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BD00000000000000000000B9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -175,6 +223,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BD00000000000000000000B7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -183,10 +238,22 @@
 			target = BD00000000000000000000A4 /* Blendoku3 */;
 			targetProxy = BD00000000000000000000E2 /* PBXContainerItemProxy */;
 		};
+		BD00000000000000000000E3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BD00000000000000000000A4 /* Blendoku3 */;
+			targetProxy = BD00000000000000000000E4 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXContainerItemProxy section */
 		BD00000000000000000000E2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BD00000000000000000000A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BD00000000000000000000A4;
+			remoteInfo = Blendoku3;
+		};
+		BD00000000000000000000E4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BD00000000000000000000A1 /* Project object */;
 			proxyType = 1;
@@ -279,6 +346,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Swatchword;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -307,6 +375,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Swatchword;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -359,6 +428,38 @@
 			};
 			name = Release;
 		};
+		BD00000000000000000000D7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mattjett.swatchword.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Blendoku3;
+			};
+			name = Debug;
+		};
+		BD00000000000000000000D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mattjett.swatchword.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Blendoku3;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -385,6 +486,15 @@
 			buildConfigurations = (
 				BD00000000000000000000D5 /* Debug */,
 				BD00000000000000000000D6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BD00000000000000000000C4 /* Build configuration list for PBXNativeTarget "Blendoku3UITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD00000000000000000000D7 /* Debug */,
+				BD00000000000000000000D8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -25,7 +25,7 @@ To build and play it on a simulator without opening Xcode:
 ```sh
 Tools/run-simulator.sh            # boot a simulator and play
 Tools/run-simulator.sh 42         # open straight into level 42
-Tools/run-simulator.sh 42 paper   # ...on the light ground
+Tools/run-simulator.sh 42 light   # ...on the light ground
 ```
 
 Simulator builds are not code signed, so that route needs nothing from your
@@ -152,13 +152,19 @@ board is allowed to scale for the same reason: a tile that grew would ride over
 its neighbours, so landing and solving are animated with light rather than
 motion.
 
-That flush block is the app's signature object, and it repeats: the home
-screen's preview strip runs the full width of the device with square ends, and
-each chapter in the level list is ten swatches meeting edge to edge rather than
-ten buttons that happen to be coloured.
+That flush block is the app's signature object, and it repeats: each chapter
+in the level list is ten swatches meeting edge to edge rather than ten buttons
+that happen to be coloured.
+
+**Anything raised can be pressed, and nothing else is raised.** Controls stand
+up off the page; everything else — the crossword wordmark, titles, tallies,
+the version mark, the finished blend — is cut into it or printed flat on it.
+Home is four controls: the play block (which is also the arc's progress, the
+arc's own colours rising inside it as levels are solved) and three slabs for
+Arcs, Keepsakes and Settings.
 
 **The chrome has no borders.** Every panel, shelf, button and well is the
-*same colour as the ground behind it* — all white on paper, all black on ink —
+*same colour as the ground behind it* — all white in Light, all black in Shadow —
 and is made three-dimensional by nothing but a dark shadow falling one way and a
 light one falling the other. `SoftSurface` is the whole system: one shape, one
 depth number, and a `pressed` flag that flips the lighting inward instead of
@@ -228,6 +234,25 @@ approximation of something the app can work out exactly. The session is
 Everything honours **Reduce Motion**, which stills the ground and the looping
 demos.
 
+## Playing
+
+- A **title page** on launch; tap to begin.
+- **Pause** from the top-left of any board: resume, restart, how to play, the
+  level list, home, and quick switches for tones, haptics and replay. Leaving
+  the app pauses the board and stops its clock.
+- An **unfinished board waits** where you left it — across screens and across
+  launches — and Play on Home resumes it.
+- A **solved board plays back its song**: the tiles in the order you placed
+  them, then a climb through the board's whole spectrum, dark to light. The
+  beat is felt through the Taptic Engine. Pacing compresses logarithmically:
+  two tiles take their time, the hundredth board lands at about ten seconds.
+  Tap to skip.
+- From the result: **Arcs**, **Keep** (the blend *and* its song), or **Next**.
+- **Keepsakes** plays kept songs back, with a playhead hopping through your
+  order and sweeping through the climb, and copies each blend's CSS.
+- **Arcs** show their standing as depth: done is pressed in, the current arc
+  is the only one in colour, arcs ahead are raised, grey and unnamed.
+
 ## Accessibility
 
 - **Tap-to-place** is a complete alternative to dragging: tap a tile, tap a slot.
@@ -235,8 +260,10 @@ demos.
   ("dark vivid teal, row 2, column 3") and its position.
 - **Show colour values** prints each tile's hex on it, for anyone who would
   rather read the colours than compare them.
-- **Paper, Ink or System** in Settings. Both grounds are real designs rather
-  than a tint flip, and the puzzle colours are legible against either.
+- **Light, Shadow or Auto** in Settings. Both grounds are real designs rather
+  than a tint flip, and the puzzle colours are legible against either. (They
+  were Paper and Ink; old choices carry over.)
+- **Announce positions** adds each cell's row and column to VoiceOver.
 - Portrait on iPhone by design.
 
 ## Tools
@@ -265,3 +292,19 @@ against the real Swift generator in `Blendoku3Tests/LevelGenerationTests.swift`.
 - Every colour is inside the sRGB gamut with room to spare.
 - Generation is deterministic, and the whole book builds in well under a second.
 - Placing, swapping, hinting, resetting and solving behave as the UI assumes.
+- **A full playthrough**: all hundred boards solved tile by tile in a shuffled
+  order, each checked for its record, the level it unlocks, its song and beat.
+- The song: pacing lands the largest board at ten seconds, the beat stays
+  between 48 and 90 BPM on every board, and no real mix gets near clipping.
+- Saved boards restore exactly, and tampered ones — wrong level, stale
+  generator, phantom or duplicated tiles, impossible counts — are refused
+  whole. Thousands of random moves never let the session's indexes drift.
+- Damaged save files: duplicate records (which used to crash every launch),
+  overflowing counts, out-of-range levels, oversized files, old keepsake
+  formats, and the paper/ink → light/shadow rename.
+
+`Blendoku3UITests` walks the app like a player — title, every menu, a board,
+the pause menu, a solve, its song, a keepsake. Every test in both targets is
+**silent**: the app knows when it is under test and makes no sound, no
+vibration and no ambient motion, and UI tests run against a scratch folder, so
+a run cannot touch real progress.

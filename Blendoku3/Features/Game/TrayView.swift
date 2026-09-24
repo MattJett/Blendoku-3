@@ -32,7 +32,7 @@ struct TrayView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.snug) {
             HStack {
-                MoodLabel("Tray", size: 9)
+                MonoLabel("Tray")
                 Spacer(minLength: 0)
                 Text("\(session.trayOrder.filter { session.isInTray($0) }.count)")
                     .font(Theme.mono(11))

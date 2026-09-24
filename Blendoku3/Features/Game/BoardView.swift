@@ -36,11 +36,9 @@ struct BoardView: View {
                                   pan: clamped(pan + sweep, zoom: live,
                                                available: proxy.size))
 
-            let occupied = Set(puzzle.cells)
-
             ZStack(alignment: .topLeading) {
                 ForEach(puzzle.cells, id: \.self) { point in
-                    cell(at: point, metrics: metrics, occupied: occupied)
+                    cell(at: point, metrics: metrics)
                         .position(metrics.centre(of: point))
                 }
             }
@@ -99,12 +97,11 @@ struct BoardView: View {
     // MARK: - One cell
 
     @ViewBuilder
-    private func cell(at point: GridPoint, metrics: Metrics,
-                      occupied: Set<GridPoint>) -> some View {
+    private func cell(at point: GridPoint, metrics: Metrics) -> some View {
         let session = controller.session
         let isHovered = controller.drag.hover == .slot(point)
         let dragged = controller.drag.payload?.tile
-        let corners = Self.corners(at: point, in: occupied)
+        let corners = controller.corners[point] ?? .all
 
         Group {
             if puzzle.clues.contains(point), let colour = puzzle.solution[point] {
@@ -130,6 +127,8 @@ struct BoardView: View {
         .modifier(LandingFlash(active: controller.landed == point, trigger: controller.landingToken))
         .modifier(SolveRipple(delay: rippleDelay(for: point),
                               trigger: controller.solveToken))
+        .modifier(ReplayPulse(pulse: controller.pulses[point],
+                              trigger: controller.replayToken))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label(for: point))
         .accessibilityAddTraits(session.tile(at: point) == nil && !puzzle.clues.contains(point)
@@ -169,15 +168,19 @@ struct BoardView: View {
         Double(point.x + point.y) * 0.045
     }
 
+    /// Positions are read out only when the player has asked for them in
+    /// Settings. The switch used to exist while the board announced them
+    /// regardless, which made it a control that did nothing.
     private func label(for point: GridPoint) -> String {
-        let position = "row \(point.y + 1), column \(point.x + 1)"
+        let position = settings.showGridLabels
+            ? ", row \(point.y + 1), column \(point.x + 1)" : ""
         if puzzle.clues.contains(point), let colour = puzzle.solution[point] {
-            return "\(colour.readableName), fixed, \(position)"
+            return "\(colour.readableName), fixed\(position)"
         }
         if let tile = controller.session.tile(at: point) {
-            return "\(tile.color.readableName), \(position)"
+            return "\(tile.color.readableName)\(position)"
         }
-        return "Empty slot, \(position)"
+        return "Empty slot\(position)"
     }
 
     // MARK: - Geometry
@@ -265,6 +268,49 @@ private struct SolveRipple: ViewModifier {
     }
 }
 
+/// The finished board playing its song back.
+///
+/// Each cell lights twice at most: once for its own note in the order the
+/// player placed it, and once as the climb runs up the spectrum through it.
+/// Brightness only, like the solve ripple — a scale would push neighbours
+/// apart at exactly the moment the blend should look most continuous.
+@MainActor
+private struct ReplayPulse: ViewModifier {
+    let pulse: SongSchedule.Pulse?
+    let trigger: Int
+
+    /// How long one pulse takes to rise and fall.
+    private static let rise = 0.10
+    private static let fall = 0.34
+
+    // Two pulses on one fixed track. A cell with no melody note still runs
+    // the first leg, at zero height, so the timing works out the same for
+    // every cell and the track needs no branches.
+    private var first: Double { pulse?.melody ?? 0 }
+    private var second: Double {
+        guard let climb = pulse?.climb else { return 0 }
+        return max(climb - first - Self.rise - Self.fall, 0)
+    }
+    private var firstHeight: Double { pulse?.melody == nil ? 0 : 1 }
+    private var secondHeight: Double { pulse?.climb == nil ? 0 : 0.8 }
+
+    func body(content: Content) -> some View {
+        content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, lift in
+            view
+                .brightness(lift * 0.26)
+                .saturation(1 + lift * 0.28)
+        } keyframes: { _ in
+            KeyframeTrack {
+                LinearKeyframe(0.0, duration: max(first, 0.001))
+                SpringKeyframe(firstHeight, duration: Self.rise, spring: .snappy)
+                SpringKeyframe(0.0, duration: Self.fall, spring: .smooth)
+                LinearKeyframe(0.0, duration: max(second, 0.001))
+                SpringKeyframe(secondHeight, duration: Self.rise * 0.8, spring: .snappy)
+                SpringKeyframe(0.0, duration: Self.fall * 1.3, spring: .smooth)
+            }
+        }
+    }
+}
 
 /// Four crosshairs at the corners of the grid.
 ///

@@ -27,9 +27,9 @@ struct PigmentField: View {
     /// ground has to stay neutral or there is nothing for a tile's colour to be
     /// judged against.
     ///
-    /// Paper needs slightly more than ink: multiplying a bloom into a near-white
+    /// Light needs slightly more than shadow: multiplying a bloom into a near-white
     /// page moves it far less than screening the same bloom onto a near-black
-    /// one, and at ink's setting the light ground came out perfectly flat.
+    /// one, and at shadow's setting the light ground came out perfectly flat.
     private var intensity: Double { scheme == .dark ? 0.18 : 0.20 }
 
     var body: some View {
@@ -62,7 +62,7 @@ struct PigmentField: View {
         }
         .ignoresSafeArea()
         .onAppear {
-            guard !reduceMotion else { return }
+            guard !reduceMotion, !Runtime.holdsStill else { return }
             withAnimation(Motion.ambient) { drift = true }
         }
         .accessibilityHidden(true)

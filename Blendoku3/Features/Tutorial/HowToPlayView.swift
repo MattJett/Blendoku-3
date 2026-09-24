@@ -36,7 +36,11 @@ struct HowToPlayView: View {
                          title: "Where lines cross, both must work",
                          body: "A tile at a crossing has to satisfy the row and the column at once. That single tile is usually the whole puzzle.")
 
-                    Text("Stuck? The lightbulb places one correct tile for you. It costs a star, nothing else.")
+                    rule(number: 6,
+                         title: "Every board is a song",
+                         body: "Each tile rings at a pitch set by how light it is. Solve a board and it plays back the order you placed it in, then climbs its whole spectrum. Keep one and the song is kept with it.")
+
+                    Text("Stuck? The lightbulb places one correct tile for you. Using it caps that board at one star. Pause from the top-left to restart or leave; an unfinished board waits where you left it.")
                         .font(Theme.text(13))
                         .foregroundStyle(Theme.textTertiary)
                         .lineSpacing(3)
@@ -133,7 +137,7 @@ private struct DemoStrip: View {
     }
 
     private func start() {
-        guard !reduceMotion else { filled = true; return }
+        guard !reduceMotion, !Runtime.holdsStill else { filled = true; return }
         Task { await cycle() }
     }
 

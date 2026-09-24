@@ -15,11 +15,7 @@ struct LevelSelectView: View {
             VStack(spacing: 0) {
                 ScreenHeader(title: "Levels",
                              eyebrow: "Chromarc 01 · First Light",
-                             subtitle: "\(progress.completedCount) of \(DifficultyCurve.levelCount) solved",
-                             trailing: AnyView(
-                                IconButton(systemName: "square.stack.3d.up", label: "Chromarcs") {
-                                    router.push(.chromarcs)
-                                })) {
+                             subtitle: "\(progress.completedCount) of \(DifficultyCurve.levelCount) solved") {
                     router.pop()
                 }
 
@@ -95,7 +91,7 @@ private struct ChapterBlock: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Space.snug) {
-            MoodLabel(String(format: "%02d", chapter.rawValue), tint: Theme.textSecondary)
+            MonoLabel(String(format: "%02d", chapter.rawValue), size: 10, tint: Theme.textSecondary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(chapter.title)
                     .font(Theme.text(16, weight: .medium))
@@ -152,7 +148,7 @@ struct LevelSwatch: View {
             style: .continuous)
     }
 
-    private var ink: Color {
+    private var lettering: Color {
         unlocked ? (ramp.last ?? ramp[0]).readableForeground : Theme.textTertiary
     }
 
@@ -173,8 +169,8 @@ struct LevelSwatch: View {
                     Text("\(level)")
                         .font(Theme.mono(15, weight: .medium))
                         .monospacedDigit()
-                        .foregroundStyle(ink)
-                    DotRow(count: record?.stars ?? 0, tint: ink)
+                        .foregroundStyle(lettering)
+                    DotRow(count: record?.stars ?? 0, tint: lettering)
                         .opacity(unlocked ? 1 : 0)
                 }
             }
@@ -188,6 +184,7 @@ struct LevelSwatch: View {
         .buttonStyle(SwatchPressStyle())
         .disabled(!unlocked)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier("level.\(level)")
     }
 
     private var accessibilityLabel: String {

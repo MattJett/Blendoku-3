@@ -65,25 +65,38 @@ struct RegistrationMark: View {
 /// A soft radial bloom of a single puzzle colour.
 ///
 /// This is the only place the chrome is allowed to be saturated, and it is
-/// always blurred past the point of being a shape — colour as atmosphere, so
-/// the eye never tries to compare it to a tile.
+/// always too soft to be a shape — colour as atmosphere, so the eye never
+/// tries to compare it to a tile.
+///
+/// The softness is in the gradient, not in a blur. It used to be a
+/// three-stop gradient under a Gaussian blur a hundred points wide, and the
+/// blooms drift, so that blur was recomputed on every frame of every screen —
+/// including the board, where the frame budget belongs to the tiles. A
+/// gradient eased out over enough stops is already as soft as the blur made
+/// it, and costs nothing to move.
 @MainActor
 struct PigmentOrb: View {
     let colour: BlendColor
     var diameter: CGFloat
     var intensity: Double = 0.55
 
+    /// A Gaussian-like falloff, sampled.
+    private static let falloff: [(location: CGFloat, strength: Double)] = [
+        (0.00, 1.00), (0.18, 0.86), (0.36, 0.58), (0.54, 0.30),
+        (0.72, 0.11), (0.86, 0.03), (1.00, 0.00),
+    ]
+
     var body: some View {
-        Circle()
+        let tint = Color(colour)
+        return Circle()
             .fill(
                 RadialGradient(
-                    colors: [Color(colour).opacity(intensity),
-                             Color(colour).opacity(intensity * 0.34),
-                             Color(colour).opacity(0)],
+                    stops: Self.falloff.map {
+                        Gradient.Stop(color: tint.opacity(intensity * $0.strength), location: $0.location)
+                    },
                     center: .center, startRadius: 0, endRadius: diameter * 0.5)
             )
             .frame(width: diameter, height: diameter)
-            .blur(radius: diameter * 0.16)
             .accessibilityHidden(true)
     }
 }
@@ -119,7 +132,7 @@ struct Striation: View {
 /// the ground colour behind it*, made visible only by a dark shadow falling one
 /// way and a light one falling the other. Nothing is outlined. An edge here is
 /// a lighting result, which is why the whole chrome can be a single value in
-/// each theme — all white on paper, all black on ink — and still have a legible
+/// each theme — all white in light, all black in shadow — and still have a legible
 /// hierarchy of depth.
 ///
 /// `pressed` flips the lighting inside the shape instead of outside it, which
@@ -288,7 +301,7 @@ struct Readout: View {
                 .font(Theme.mono(size, weight: .light))
                 .foregroundStyle(Theme.textPrimary)
                 .monospacedDigit()
-            MoodLabel(label, size: 9)
+            MonoLabel(label, size: 8)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(label)")
@@ -320,5 +333,37 @@ struct FillRule: View {
         }
         .frame(height: thickness)
         .accessibilityLabel("\(Int(fraction * 100)) percent")
+    }
+}
+
+// MARK: - Playhead
+
+/// A marker riding along a ribbon while its song plays: hopping from note to
+/// note through the player's order, then sweeping end to end for the climb.
+///
+/// Drawn over a ribbon sorted by lightness, which is also the order of pitch,
+/// so the marker's height up the scale and its place along the colour are the
+/// same thing.
+@MainActor
+struct SongPlayhead: View {
+    let schedule: SongSchedule
+    let startedAt: Date
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60)) { context in
+            let position = schedule.ribbonPosition(at: context.date.timeIntervalSince(startedAt))
+            GeometryReader { proxy in
+                if let position {
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                        .fill(Theme.knockout)
+                        .frame(width: 3, height: proxy.size.height + 8)
+                        .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
+                        .position(x: 3 + (proxy.size.width - 6) * position,
+                                  y: proxy.size.height / 2)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

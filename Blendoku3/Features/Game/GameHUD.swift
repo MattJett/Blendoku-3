@@ -8,8 +8,7 @@ import SwiftUI
 @MainActor
 struct GameHUD: View {
     let controller: GameController
-    let onBack: () -> Void
-    let onReset: () -> Void
+    let onPause: () -> Void
     let onHint: () -> Void
 
     private var puzzle: Puzzle { controller.session.puzzle }
@@ -18,12 +17,12 @@ struct GameHUD: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.snug) {
             HStack(alignment: .center, spacing: Theme.Space.snug) {
-                IconButton(systemName: "arrow.left", label: "Back", action: onBack)
+                IconButton(systemName: "pause.fill", label: "Pause", action: onPause)
+                    .accessibilityIdentifier("game.pause")
 
                 VStack(alignment: .leading, spacing: 2) {
-                    MoodLabel("\(String(format: "%02d", puzzle.chapter.rawValue)) · \(puzzle.chapter.title)",
-                              size: 9)
-                    Text("Level \(puzzle.level)")
+                    MonoLabel("\(String(format: "%02d", puzzle.chapter.rawValue)) · \(puzzle.chapter.title)")
+                    Text("Level \(String(format: "%03d", puzzle.level))")
                         .font(Theme.display(25))
                         .textCase(.uppercase)
                         .tracking(0.4)
@@ -32,10 +31,12 @@ struct GameHUD: View {
 
                 Spacer(minLength: 0)
 
+                // Start over lives in the pause menu now. Sitting one tap
+                // from the hint, on a board that took twenty minutes, it was
+                // an accident waiting to happen.
                 IconButton(systemName: "lightbulb", label: "Hint",
-                                 tint: Theme.accent, action: onHint)
-                IconButton(systemName: "arrow.counterclockwise", label: "Start over",
-                                 action: onReset)
+                           tint: Theme.accent, action: onHint)
+                    .accessibilityIdentifier("game.hint")
             }
 
             HStack(spacing: Theme.Space.base) {
@@ -57,7 +58,7 @@ struct GameHUD: View {
                 .font(Theme.mono(14, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(Theme.textPrimary)
-            MoodLabel(label, size: 9)
+            MonoLabel(label)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(label)")

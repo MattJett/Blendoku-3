@@ -19,6 +19,8 @@ struct RootView: View {
     @ViewBuilder
     private var screen: some View {
         switch router.current {
+        case .title:
+            TitleView()
         case .home:
             HomeView()
         case .levels:
@@ -29,8 +31,8 @@ struct RootView: View {
             HowToPlayView()
         case .settings:
             SettingsView()
-        case .collection:
-            CollectionView()
+        case .keepsakes:
+            KeepsakesView()
         case .chromarcs:
             ChromarcSelectView()
         case .arcComplete(let arc):
@@ -39,11 +41,11 @@ struct RootView: View {
     }
 }
 
-/// The header on every screen below the home screen.
+/// The header on every screen below Home.
 ///
-/// Editorial rather than chrome: the control sits on its own line, the title is
-/// set large and light underneath it with a tracked micro-cap above, and a
-/// single hairline closes the block off. Nothing is boxed.
+/// A back slab on its own line, then the title cut into the page with a mono
+/// annotation above it. Nothing is boxed: the title is not a control, so it
+/// does not stand up.
 @MainActor
 struct ScreenHeader: View {
     let title: String
@@ -56,19 +58,21 @@ struct ScreenHeader: View {
         VStack(alignment: .leading, spacing: Theme.Space.snug) {
             HStack(spacing: Theme.Space.snug) {
                 IconButton(systemName: "arrow.left", label: "Back", action: onBack)
+                    .accessibilityIdentifier("screen.back")
                 Spacer(minLength: 0)
                 if let trailing { trailing }
             }
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 if let eyebrow {
-                    MoodLabel(eyebrow)
+                    MonoLabel(eyebrow)
                 }
                 Text(title)
-                    .font(Theme.display(34))
+                    .font(Theme.display(40))
                     .textCase(.uppercase)
-                    .tracking(0.4)
-                    .foregroundStyle(Theme.textPrimary)
+                    .tracking(0.6)
+                    .carved()
+                    .accessibilityAddTraits(.isHeader)
                 if let subtitle {
                     Text(subtitle)
                         .font(Theme.text(13))

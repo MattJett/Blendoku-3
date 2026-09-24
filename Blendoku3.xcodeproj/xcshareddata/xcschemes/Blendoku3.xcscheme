@@ -38,6 +38,16 @@
                ReferencedContainer = "container:Blendoku3.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "BD00000000000000000000AC"
+               BuildableName = "Blendoku3UITests.xctest"
+               BlueprintName = "Blendoku3UITests"
+               ReferencedContainer = "container:Blendoku3.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

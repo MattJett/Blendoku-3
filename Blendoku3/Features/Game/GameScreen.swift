@@ -6,14 +6,30 @@ struct GameScreen: View {
 
     static let space = "blendoku.game"
 
+    /// What the screen is doing once a board is loaded.
+    enum Stage: Equatable {
+        case playing
+        /// Solved; the board is playing its song back.
+        case replaying
+        case victory
+    }
+
     @Environment(AppRouter.self) private var router
     @Environment(LevelCatalog.self) private var catalog
     @Environment(ProgressStore.self) private var progress
     @Environment(GameSettings.self) private var settings
+    @Environment(SessionStore.self) private var sessions
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var controller: GameController?
-    @State private var showVictory = false
+    @State private var stage: Stage = .playing
     @State private var record: LevelRecord?
+    @State private var song: SongSchedule?
+    /// The wait between solving and the result: the song, or the ripple.
+    @State private var finale: Task<Void, Never>?
+    /// The replay's own id with the performer, so the victory panel can tell
+    /// its Listen button apart from it.
+    @State private var replayID = UUID()
 
     var body: some View {
         ZStack {
@@ -27,22 +43,14 @@ struct GameScreen: View {
         }
         .animation(Motion.screen, value: controller == nil)
         .coordinateSpace(.named(Self.space))
-        .overlay {
-            if showVictory, let controller, let record {
-                VictoryOverlay(puzzle: controller.session.puzzle,
-                               record: record,
-                               hasNextLevel: level < DifficultyCurve.levelCount,
-                               arcComplete: progress.completedCount >= DifficultyCurve.levelCount,
-                               onNext: { router.replaceTop(with: .game(level + 1)) },
-                               onFinishArc: {
-                                   router.replaceTop(with: .arcComplete(controller.session.puzzle.arc))
-                               },
-                               onReplay: { replay(controller) },
-                               onLevels: { router.replaceTop(with: .levels) })
-                    .transition(.opacity)
-            }
-        }
+        .overlay { replayLayer }
+        .overlay { pauseLayer }
+        .overlay { victoryLayer }
         .task(id: level) { await load() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { suspend() }
+        }
+        .onDisappear(perform: leave)
     }
 
     // MARK: - Layout
@@ -50,8 +58,7 @@ struct GameScreen: View {
     private func board(_ controller: GameController) -> some View {
         VStack(spacing: 0) {
             GameHUD(controller: controller,
-                    onBack: { router.pop() },
-                    onReset: { controller.reset() },
+                    onPause: { pause(controller) },
                     onHint: { controller.useHint() })
 
             BoardView(controller: controller, settings: settings, space: Self.space)
@@ -84,6 +91,9 @@ struct GameScreen: View {
             guard solved else { return }
             finish(controller)
         }
+        .onChange(of: controller.session.moves) { _, _ in
+            remember(controller)
+        }
     }
 
     @ViewBuilder
@@ -97,6 +107,52 @@ struct GameScreen: View {
                 .rotationEffect(.degrees(-2.5))
                 .position(controller.drag.ghostCentre)
                 .allowsHitTesting(false)
+                .transition(.opacity)
+        }
+    }
+
+    // MARK: - Layers
+
+    /// While the song plays: which pass it is on, and a tap anywhere to skip.
+    @ViewBuilder
+    private var replayLayer: some View {
+        if stage == .replaying, let song {
+            ReplayCaption(song: song, performer: SongPerformer.shared, onSkip: skipReplay)
+                .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var pauseLayer: some View {
+        if let controller, controller.isPaused, stage == .playing {
+            PauseOverlay(puzzle: controller.session.puzzle,
+                         elapsed: controller.session.elapsed,
+                         moves: controller.session.moves,
+                         remaining: controller.session.remainingCount,
+                         onResume: { withAnimation(Motion.screen) { controller.resume() } },
+                         onRestart: { restart(controller) },
+                         onHowToPlay: { leaveFor(.howToPlay, controller) },
+                         onLevels: { remember(controller); router.showLevels() },
+                         onHome: { remember(controller); router.popToRoot() })
+                .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var victoryLayer: some View {
+        if stage == .victory, let controller, let record, let song {
+            let puzzle = controller.session.puzzle
+            VictoryOverlay(puzzle: puzzle,
+                           record: record,
+                           song: song,
+                           warmth: controller.warmth,
+                           hasNextLevel: level < DifficultyCurve.levelCount,
+                           arcComplete: progress.isArcComplete,
+                           onNext: { router.replaceTop(with: .game(level + 1)) },
+                           onFinishArc: { router.replaceTop(with: .arcComplete(puzzle.arc)) },
+                           onRetry: { retry(controller) },
+                           onArcs: { router.showArcs() },
+                           onLevels: { router.showLevels() })
                 .transition(.opacity)
         }
     }
@@ -118,7 +174,7 @@ struct GameScreen: View {
     /// tapping "done" on a description of solving the board.
     private func coachStep(_ controller: GameController) -> CoachOverlay.Step {
         let session = controller.session
-        if session.puzzle.slots.contains(where: { session.tile(at: $0) != nil }) { return .read }
+        if !session.occupant.isEmpty { return .read }
         if controller.selected != nil || controller.drag.payload != nil { return .drop }
         return .pickUp
     }
@@ -136,26 +192,48 @@ struct GameScreen: View {
 
     private func load() async {
         let puzzle = await catalog.puzzle(for: level)
-        let made = GameController(puzzle: puzzle)
+        let profile = DifficultyCurve.profile(for: level, arc: puzzle.arc)
+        let chroma = 0.16 * profile.chromaFraction.upperBound
+        let made = GameController(puzzle: puzzle,
+                                  warmth: Tuning.warmth(forHue: profile.baseHue, chroma: chroma))
+
+        // Carry on where the player left off, if they left off here. A saved
+        // board that does not fit this one exactly is thrown away rather than
+        // half-applied.
+        if let saved = sessions.snapshot(arc: puzzle.arc, level: level),
+           !made.session.restore(saved) {
+            sessions.clear()
+        }
+
         controller = made
-        showVictory = false
+        stage = .playing
         record = nil
+        song = nil
         router.backdropPalette = puzzle.paletteSwatches(count: 4)
 
         // The board picks the instrument, the tile picks the note — so the
         // whole tone table is rendered here, off the main thread, well before
         // anyone can touch a tile.
-        let profile = DifficultyCurve.profile(for: level, arc: puzzle.arc)
-        SoundField.shared.prepare(hue: profile.baseHue,
-                                  chroma: 0.16 * profile.chromaFraction.upperBound)
+        SoundField.shared.prepare(hue: profile.baseHue, chroma: chroma)
         progress.markPlayed(level: level)
         catalog.prefetch(after: level)
 
-        // `-uiPreviewSolved 1` finishes the board on its own, so the victory
-        // panel can be photographed. It runs the real solve path rather than
-        // faking the overlay, which means the screenshot is of the same view
-        // the player gets — including the record it is built from.
-        if UserDefaults.standard.bool(forKey: "uiPreviewSolved") {
+        #if DEBUG
+        applyPreviewHooks(made)
+        #endif
+    }
+
+    #if DEBUG
+    /// `-uiPreviewSolved 1` finishes the board on its own so the result can be
+    /// photographed; `-uiPreviewPaused 1` opens the pause menu. Both run the
+    /// real code path rather than faking the view, so the screenshot is of
+    /// what the player gets.
+    private func applyPreviewHooks(_ made: GameController) {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: "uiPreviewPaused") {
+            made.pause()
+        }
+        if defaults.bool(forKey: "uiPreviewSolved") {
             Task {
                 try? await Task.sleep(for: .milliseconds(300))
                 made.session.solveCompletely()
@@ -163,16 +241,76 @@ struct GameScreen: View {
         }
     }
 
-    private func replay(_ controller: GameController) {
-        withAnimation(Motion.screen) { showVictory = false }
+    private var previewSkipsReplay: Bool {
+        UserDefaults.standard.string(forKey: "uiPreviewReplay") == "off"
+    }
+    #else
+    private var previewSkipsReplay: Bool { false }
+    #endif
+
+    /// Saves the board as it stands, or forgets it if there is nothing worth
+    /// coming back to.
+    private func remember(_ controller: GameController) {
+        let session = controller.session
+        if session.isSolved || session.moves == 0 {
+            if sessions.snapshot(arc: session.puzzle.arc, level: level) != nil { sessions.clear() }
+        } else {
+            sessions.save(session.snapshot())
+        }
+    }
+
+    private func pause(_ controller: GameController) {
+        Haptics.play(.select)
+        withAnimation(Motion.screen) { controller.pause() }
+        remember(controller)
+    }
+
+    /// The app is leaving the foreground. A board in play pauses, as every
+    /// game does, so the player comes back to a menu rather than to a clock
+    /// that kept running; a song in progress skips to its result, since
+    /// nobody is there to hear the end of it.
+    private func suspend() {
+        guard let controller else { return }
+        switch stage {
+        case .playing:
+            controller.pause()
+            remember(controller)
+        case .replaying:
+            skipReplay()
+        case .victory:
+            break
+        }
+    }
+
+    private func leave() {
+        finale?.cancel()
+        SongPerformer.shared.stop()
+        if let controller { remember(controller) }
+    }
+
+    private func leaveFor(_ screen: AppRouter.Screen, _ controller: GameController) {
+        remember(controller)
+        router.push(screen)
+    }
+
+    private func restart(_ controller: GameController) {
+        controller.reset()
+        sessions.clear()
+    }
+
+    private func retry(_ controller: GameController) {
+        SongPerformer.shared.stop()
+        withAnimation(Motion.screen) { stage = .playing }
         controller.reset()
         record = nil
+        song = nil
     }
 
     private func finish(_ controller: GameController) {
         let session = controller.session
         controller.celebrate()
         if level == 1 { settings.finishCoaching() }
+        sessions.clear()
 
         let outcome = LevelRecord(level: level,
                                   moves: session.moves,
@@ -186,11 +324,78 @@ struct GameScreen: View {
                           hintsUsed: outcome.hintsUsed,
                           perfectMoves: outcome.perfectMoves)
 
-        Task {
-            // Let the ripple finish crossing the board before covering it up.
-            try? await Task.sleep(for: .milliseconds(950))
-            withAnimation(Motion.screen) { showVictory = true }
+        let schedule = controller.song()
+        song = schedule
+        let replays = settings.replayEnabled && !previewSkipsReplay
+
+        finale?.cancel()
+        finale = Task {
+            // A breath after the last tile lands, so the solve itself is
+            // heard before the song starts.
+            try? await Task.sleep(for: .milliseconds(replays ? 650 : 950))
+            guard !Task.isCancelled else { return }
+            if replays {
+                withAnimation(Motion.quick) { stage = .replaying }
+                await SongPerformer.shared.perform(schedule, warmth: controller.warmth, id: replayID)
+                guard !Task.isCancelled, stage == .replaying else { return }
+                // The board lights from the instant the sound starts, not from
+                // when it was asked for — composing the song takes a moment.
+                controller.beginReplay(schedule)
+                try? await Task.sleep(for: .seconds(schedule.lastOnset + 0.9))
+                guard !Task.isCancelled, stage == .replaying else { return }
+            }
+            showVictory()
         }
+    }
+
+    private func skipReplay() {
+        finale?.cancel()
+        SongPerformer.shared.stop()
+        showVictory()
+    }
+
+    private func showVictory() {
+        controller?.endReplay()
+        withAnimation(Motion.screen) { stage = .victory }
+    }
+}
+
+/// Over the board while its song plays: which pass it is on, set small at the
+/// foot of the screen, and the whole screen a tap target to skip.
+@MainActor
+private struct ReplayCaption: View {
+    let song: SongSchedule
+    let performer: SongPerformer
+    let onSkip: () -> Void
+
+    var body: some View {
+        VStack {
+            Spacer(minLength: 0)
+            TimelineView(.periodic(from: .now, by: 0.1)) { context in
+                HStack {
+                    MonoLabel(passName(at: context.date), size: 10, tint: Theme.textSecondary,
+                              weight: .semibold)
+                    Spacer(minLength: 0)
+                    MonoLabel("Tap to skip", size: 10)
+                }
+            }
+            .padding(.horizontal, Theme.Space.margin)
+            .padding(.vertical, Theme.Space.snug)
+            .background(Theme.ground.opacity(0.92))
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSkip)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Your board is playing its song")
+        .accessibilityHint("Double tap to skip to the result")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("replay.skip")
+    }
+
+    private func passName(at date: Date) -> String {
+        guard let startedAt = performer.startedAt else { return "Listening" }
+        let seconds = date.timeIntervalSince(startedAt)
+        return seconds < song.climbStart ? "01 — Your order" : "02 — The climb"
     }
 }
 

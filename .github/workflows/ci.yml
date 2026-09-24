@@ -17,7 +17,7 @@ jobs:
   ios:
     name: Build and test (iOS)
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -94,39 +94,41 @@ jobs:
           }
 
           # Both grounds are named explicitly, never left to default. The app
-          # follows the system appearance now, the simulator boots light, and
-          # so a shot with no ground named is a paper shot — which is how a
-          # whole run of "dark" screenshots quietly became light ones.
+          # follows the system appearance, the simulator boots light, and so a
+          # shot with no ground named is a light shot — which is how a whole
+          # run of "dark" screenshots once quietly became light ones.
           #
           # The ground is set through the app rather than `simctl ui
           # appearance`, which exits zero on this runner without changing
           # anything and silently photographs the wrong mode.
-          shoot 01-ink-home -uiPreviewAppearance ink
-          # The board is where the layout risk lives, so photograph one too.
-          shoot 02-ink-level-07 -uiPreviewAppearance ink -uiPreviewLevel 7
-          shoot 03-ink-level-84 -uiPreviewAppearance ink -uiPreviewLevel 84
+          shoot 01-shadow-title -uiPreviewAppearance shadow
+          # Home with an arc part-played, so the play block has colour in it.
+          shoot 02-shadow-home -uiPreviewAppearance shadow -uiPreviewScreen home -uiPreviewProgress 62
+          shoot 03-shadow-level-07 -uiPreviewAppearance shadow -uiPreviewLevel 7
+          shoot 04-shadow-level-84 -uiPreviewAppearance shadow -uiPreviewLevel 84
           # The biggest board in the game, which is where the zoom, the two-row
           # tray and the fit-to-screen floor all have to hold at once.
-          shoot 04-ink-level-100 -uiPreviewAppearance ink -uiPreviewLevel 100
+          shoot 05-shadow-level-100 -uiPreviewAppearance shadow -uiPreviewLevel 100
           # The opening board carries the walkthrough, which is the one card in
           # the game that has to share the screen with the tray it points at.
-          shoot 05-ink-coaching -uiPreviewAppearance ink -uiPreviewLevel 1
-          shoot 06-ink-chromarcs -uiPreviewAppearance ink -uiPreviewScreen chromarcs
-          shoot 07-ink-arc-complete -uiPreviewAppearance ink -uiPreviewScreen arcComplete
-          # Settings, because a control nobody can find is a control that does
-          # not exist — and Tones is the newest one.
-          shoot 08-ink-settings -uiPreviewAppearance ink -uiPreviewScreen settings
+          shoot 06-shadow-coaching -uiPreviewAppearance shadow -uiPreviewLevel 1
+          shoot 07-shadow-pause -uiPreviewAppearance shadow -uiPreviewLevel 30 -uiPreviewPaused 1
+          # Level 100's song is about ten seconds, so eight in is the climb.
+          shoot 08-shadow-replay -uiPreviewAppearance shadow -uiPreviewLevel 100 -uiPreviewSolved 1
+          shoot 09-shadow-victory -uiPreviewAppearance shadow -uiPreviewLevel 26 -uiPreviewSolved 1 -uiPreviewReplay off
+          shoot 10-shadow-arcs -uiPreviewAppearance shadow -uiPreviewScreen chromarcs -uiPreviewProgress 62
+          shoot 11-shadow-keepsakes -uiPreviewAppearance shadow -uiPreviewScreen keepsakes -uiPreviewKeepsakes 1
+          shoot 12-shadow-settings -uiPreviewAppearance shadow -uiPreviewScreen settings
+          shoot 13-shadow-arc-complete -uiPreviewAppearance shadow -uiPreviewScreen arcComplete
 
-          # Paper is a real design rather than a tint flip. A light ground is
-          # where low-contrast hairlines, micro-caps and soft shadows fail, and
-          # that failure is invisible in dark mode.
-          shoot 09-paper-home -uiPreviewAppearance paper
-          shoot 10-paper-level-84 -uiPreviewAppearance paper -uiPreviewLevel 84
-
-          # The victory panel, on both grounds. It is the most sculpted surface
-          # in the app, so it is where a wrong shadow shows up first.
-          shoot 11-ink-victory -uiPreviewAppearance ink -uiPreviewLevel 26 -uiPreviewSolved 1
-          shoot 12-paper-victory -uiPreviewAppearance paper -uiPreviewLevel 26 -uiPreviewSolved 1
+          # Light is a real design rather than a tint flip. A light ground is
+          # where low-contrast hairlines, micro-caps, carved lettering and
+          # soft shadows fail, and that failure is invisible in the dark.
+          shoot 14-light-title -uiPreviewAppearance light
+          shoot 15-light-home -uiPreviewAppearance light -uiPreviewScreen home -uiPreviewProgress 62
+          shoot 16-light-level-84 -uiPreviewAppearance light -uiPreviewLevel 84
+          shoot 17-light-victory -uiPreviewAppearance light -uiPreviewLevel 26 -uiPreviewSolved 1 -uiPreviewReplay off
+          shoot 18-light-keepsakes -uiPreviewAppearance light -uiPreviewScreen keepsakes -uiPreviewKeepsakes 1
 
       # The screenshots upload as an artifact, which serves a person fine. An
       # agent driving this repo cannot fetch them though — both the artifact
@@ -148,20 +150,23 @@ jobs:
 
           column = 168
           gap, label = 12, 22
+          per_row = 9
           scaled = []
           for path in shots:
               image = Image.open(path).convert("RGB")
               scaled.append((path.stem,
                              image.resize((column, round(image.height * column / image.width)))))
 
-          height = max(image.height for _, image in scaled) + label + gap
-          width = gap + len(scaled) * (column + gap)
-          sheet = Image.new("RGB", (width, height), (16, 18, 24))
+          cell = max(image.height for _, image in scaled) + label + gap
+          rows = (len(scaled) + per_row - 1) // per_row
+          width = gap + min(len(scaled), per_row) * (column + gap)
+          sheet = Image.new("RGB", (width, rows * cell), (16, 18, 24))
           draw = ImageDraw.Draw(sheet)
           for index, (name, image) in enumerate(scaled):
-              x = gap + index * (column + gap)
-              draw.text((x, 5), name, fill=(190, 200, 215))
-              sheet.paste(image, (x, label))
+              x = gap + (index % per_row) * (column + gap)
+              y = (index // per_row) * cell
+              draw.text((x, y + 5), name, fill=(190, 200, 215))
+              sheet.paste(image, (x, y + label))
 
           sheet.save("artifacts/contact-sheet.jpg", quality=76, optimize=True)
           buffer = io.BytesIO()

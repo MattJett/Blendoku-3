@@ -46,14 +46,15 @@ struct CoachOverlay: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.tight) {
             HStack(spacing: Theme.Space.snug) {
-                MoodLabel("Step \(step.rawValue + 1) of 3")
+                MonoLabel("Step \(step.rawValue + 1) of 3")
                 Spacer(minLength: 0)
-                Button("Skip", action: onSkip)
-                    .font(Theme.control(12, weight: .semibold))
-                    .textCase(.uppercase)
-                    .tracking(Theme.controlTracking)
-                    .foregroundStyle(Theme.textTertiary)
-                    .buttonStyle(.plain)
+                Button(action: onSkip) {
+                    MonoLabel("Skip", size: 10, tint: Theme.textSecondary, weight: .semibold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                }
+                .buttonStyle(SlabButtonStyle(depth: 5, radius: Theme.Radius.chip))
+                .accessibilityIdentifier("coach.skip")
             }
 
             Text(step.title)
@@ -75,8 +76,10 @@ struct CoachOverlay: View {
         }
         .padding(Theme.Space.base)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Inlaid rather than raised: the card is instructions, not a control,
+        // and only its Skip button stands up.
         .softSurface(RoundedRectangle(cornerRadius: Theme.Radius.panel, style: .continuous),
-                     depth: 14)
+                     depth: 10, pressed: true)
         .padding(.horizontal, Theme.Space.margin)
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .accessibilityElement(children: .contain)

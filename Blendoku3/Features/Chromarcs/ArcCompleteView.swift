@@ -23,14 +23,14 @@ struct ArcCompleteView: View {
             Spacer(minLength: 0)
 
             VStack(alignment: .leading, spacing: Theme.Space.base) {
-                MoodLabel("Chromarc \(String(format: "%02d", arc.number)) complete")
+                MonoLabel("Chromarc \(String(format: "%02d", arc.number)) complete", size: 10)
                     .opacity(lit ? 1 : 0)
 
                 Text(arc.title)
-                    .font(Theme.display(46))
+                    .font(Theme.display(52))
                     .textCase(.uppercase)
                     .tracking(0.5)
-                    .foregroundStyle(Theme.textPrimary)
+                    .carved()
                     .opacity(lit ? 1 : 0)
                     .offset(y: lit ? 0 : 14)
 
@@ -52,10 +52,13 @@ struct ArcCompleteView: View {
 
             Spacer(minLength: 0)
 
-            Button("Choose a Chromarc") {
-                router.replaceTop(with: .chromarcs)
+            Button {
+                router.showArcs()
+            } label: {
+                SlabLabel(title: "Choose a Chromarc", size: 19)
             }
-            .buttonStyle(PillButtonStyle())
+            .buttonStyle(SlabButtonStyle(depth: 12))
+            .accessibilityIdentifier("arcComplete.arcs")
             .padding(.horizontal, Theme.Space.margin)
             .padding(.bottom, Theme.Space.base)
             .opacity(settled ? 1 : 0)

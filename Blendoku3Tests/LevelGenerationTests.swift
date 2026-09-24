@@ -4,10 +4,7 @@ import XCTest
 /// The level book is generated, not authored, so these tests are the only thing
 /// standing between a tweak to the curve and a hundred broken puzzles.
 final class LevelGenerationTests: XCTestCase {
-    private static let allLevels: [Puzzle] = (1...DifficultyCurve.levelCount)
-        .map { PuzzleGenerator.puzzle(level: $0) }
-
-    private var puzzles: [Puzzle] { Self.allLevels }
+    private var puzzles: [Puzzle] { Fixtures.allLevels }
 
     func testEveryLevelBuildsWithoutFallingBack() {
         XCTAssertEqual(puzzles.count, 100)

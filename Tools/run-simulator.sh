@@ -4,7 +4,7 @@
 #
 #   Tools/run-simulator.sh                 # boot a simulator and play
 #   Tools/run-simulator.sh 42              # open straight into level 42
-#   Tools/run-simulator.sh 42 paper        # ...on the light ground
+#   Tools/run-simulator.sh 42 light        # ...on the light ground
 #
 # No signing involved: simulator builds are not code signed, so this needs
 # nothing from your Apple ID. Requires Xcode 16+ — the project is written in

@@ -1,255 +1,137 @@
 import SwiftUI
 
+/// The main menu.
+///
+/// Four controls and nothing else stands up: the play block, which is also
+/// the arc's progress, and three slabs under it — Arcs, Keepsakes, Settings.
+/// The wordmark, the tallies and the version are all set straight onto the
+/// page, because none of them can be pressed.
 @MainActor
 struct HomeView: View {
     @Environment(AppRouter.self) private var router
     @Environment(ProgressStore.self) private var progress
+    @Environment(BlendLibrary.self) private var library
+    @Environment(SessionStore.self) private var sessions
+    @Environment(GameSettings.self) private var settings
 
+    private var arc: Chromarc { .first }
     private var nextLevel: Int { progress.furthestUnlocked }
-    private var palette: [BlendColor] { DifficultyCurve.profile(for: nextLevel).previewRamp }
-    private var started: Bool { progress.completedCount > 0 }
 
     var body: some View {
         GeometryReader { proxy in
-            let strip = (proxy.size.width - EdgeRail.width) / CGFloat(BlendPreviewStrip.count)
-
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top, spacing: Theme.Space.snug) {
-                    Spacer(minLength: 0)
-                    IconButton(systemName: "bookmark", label: "Kept blends") {
-                        router.push(.collection)
-                    }
-                    IconButton(systemName: "slider.horizontal.3", label: "Settings") {
-                        router.push(.settings)
-                    }
-                }
-                .padding(.horizontal, Theme.Space.margin)
-                .padding(.top, Theme.Space.tight)
-                .staggeredAppear(index: 0, perItem: 0.05)
-
-                Spacer(minLength: Theme.Space.base)
-
                 masthead
                     .padding(.horizontal, Theme.Space.margin)
+                    .padding(.top, Theme.Space.snug)
+                    .staggeredAppear(index: 0, perItem: 0.05)
 
                 Spacer(minLength: Theme.Space.base)
 
-                // Runs the full width of the device. The moment the game is
-                // built around is a gap closing in a continuous blend, so it is
-                // shown at the largest size the screen allows, with nothing
-                // framing it.
-                BlendPreviewStrip(palette: palette, side: strip)
-                    .padding(.leading, EdgeRail.width)
-                    .staggeredAppear(index: 3, perItem: 0.06, travel: 20)
+                PlayBlock(arc: arc,
+                          next: nextLevel,
+                          solved: progress.completed(in: arc),
+                          status: status,
+                          action: play)
+                    .frame(height: min(max(proxy.size.height * 0.40, 250), 380))
+                    .padding(.horizontal, Theme.Space.margin)
+                    .staggeredAppear(index: 1, perItem: 0.06, travel: 18)
 
                 Spacer(minLength: Theme.Space.base)
 
-                VStack(alignment: .leading, spacing: Theme.Space.base) {
-                    progressBlock
-                    actions
-                }
-                .padding(.horizontal, Theme.Space.margin)
-                .padding(.bottom, Theme.Space.snug)
+                satellites
+                    .padding(.horizontal, Theme.Space.margin)
+                    .staggeredAppear(index: 2, perItem: 0.06)
+
+                VersionMark()
+                    .padding(.horizontal, Theme.Space.margin)
+                    .padding(.top, Theme.Space.base)
+                    .padding(.bottom, Theme.Space.tight)
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
-            .overlay(alignment: .leading) { EdgeRail(palette: palette) }
         }
-        .onAppear { router.backdropPalette = palette }
+        .onAppear {
+            router.backdropPalette = DifficultyCurve.profile(for: nextLevel).previewRamp
+        }
     }
 
     // MARK: - Masthead
 
+    /// The wordmark at a size that sits on the page rather than spanning it,
+    /// with the running tallies set opposite it as instrument readouts.
     private var masthead: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.snug) {
-            MoodLabel("One hundred blends")
-                .staggeredAppear(index: 1, perItem: 0.06)
-
-            Wordmark()
-                .staggeredAppear(index: 1, perItem: 0.06)
-
-            Text("Slide every tile until the colours blend evenly, end to end.")
-                .font(Theme.text(15))
-                .foregroundStyle(Theme.textSecondary)
-                .lineSpacing(3)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.trailing, Theme.Space.wide)
-                .staggeredAppear(index: 2, perItem: 0.06)
-        }
-    }
-
-    // MARK: - Progress
-
-    private var progressBlock: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.snug) {
-            HStack(alignment: .bottom, spacing: Theme.Space.wide) {
-                Readout(value: "\(progress.completedCount)/\(DifficultyCurve.levelCount)",
-                        label: "solved", size: 26)
-                Readout(value: "\(progress.totalStars)", label: "stars", size: 26)
-                Spacer(minLength: 0)
-                Readout(value: String(format: "%03d", nextLevel), label: "up next",
-                        size: 26, alignment: .trailing)
+        HStack(alignment: .top, spacing: Theme.Space.base) {
+            Wordmark(cell: 27)
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: Theme.Space.snug) {
+                tally(String(format: "%03d", progress.completedCount), "Solved")
+                tally("\(progress.totalStars)", "Stars")
+                tally(String(format: "%02d", library.blends.count), "Kept")
             }
-
-            FillRule(fraction: Double(progress.completedCount)
-                     / Double(DifficultyCurve.levelCount))
+            .padding(.top, 4)
         }
-        .staggeredAppear(index: 4, perItem: 0.06)
     }
 
-    // MARK: - Actions
+    private func tally(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(value)
+                .font(Theme.mono(15, weight: .light))
+                .monospacedDigit()
+                .foregroundStyle(Theme.textPrimary)
+            MonoLabel(label, size: 8)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
+    }
 
-    private var actions: some View {
-        VStack(spacing: Theme.Space.snug) {
+    // MARK: - Satellites
+
+    private var satellites: some View {
+        HStack(spacing: Theme.Space.snug) {
             Button {
                 Haptics.play(.select)
-                router.push(.game(nextLevel))
+                router.push(.chromarcs)
             } label: {
-                Text(started ? "Continue · Level \(nextLevel)" : "Start playing")
+                SlabLabel(title: "Arcs", detail: String(format: "%02d", Chromarc.all.count))
             }
-            .buttonStyle(PillButtonStyle(chip: Color(palette.last ?? palette[0])))
-            .staggeredAppear(index: 5, perItem: 0.05)
+            .buttonStyle(SlabButtonStyle())
+            .accessibilityIdentifier("home.arcs")
 
-            HStack(spacing: Theme.Space.snug) {
-                Button("Levels") { router.push(.levels) }
-                    .buttonStyle(OutlineButtonStyle())
-                Button("How to play") { router.push(.howToPlay) }
-                    .buttonStyle(OutlineButtonStyle())
+            Button {
+                Haptics.play(.select)
+                router.push(.keepsakes)
+            } label: {
+                SlabLabel(title: "Keepsakes", detail: String(format: "%02d", library.blends.count))
             }
-            .staggeredAppear(index: 6, perItem: 0.05)
+            .buttonStyle(SlabButtonStyle())
+            .accessibilityIdentifier("home.keepsakes")
+
+            Button {
+                Haptics.play(.select)
+                router.push(.settings)
+            } label: {
+                SlabLabel(title: "Settings", detail: settings.appearance.title)
+            }
+            .buttonStyle(SlabButtonStyle())
+            .accessibilityIdentifier("home.settings")
         }
     }
-}
 
-// MARK: - Title
+    // MARK: - Playing
 
-/// The wordmark, cut into the page rather than painted onto it.
-///
-/// Two offset shadows — one light above, one dark below — give the letterforms
-/// a millimetre of relief. It is the moodboard's move for display type: depth
-/// carries the hierarchy so hue does not have to, which leaves every saturated
-/// pixel on this screen belonging to the puzzle.
-@MainActor
-struct Wordmark: View {
-    var size: CGFloat = 54
-
-    @Environment(\.colorScheme) private var scheme
-
-    var body: some View {
-        // The two halves meet with no space between them and no join drawn —
-        // the same move the board makes, where two colours sit flush and the
-        // boundary is only a change of value. Here the change is weight: a
-        // black cut running straight into a thin one.
-        (Text("Swatch").font(Theme.display(size, weight: .black))
-            + Text("word").font(Theme.display(size, weight: .thin)))
-            .textCase(.uppercase)
-            .tracking(0.5)
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            .foregroundStyle(Theme.textPrimary)
-            .shadow(color: .white.opacity(scheme == .dark ? 0.10 : 0.85), radius: 0.5, x: 0, y: -1)
-            .shadow(color: .black.opacity(scheme == .dark ? 0.55 : 0.16), radius: 1.5, x: 0, y: 2)
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityLabel("Swatchword")
-    }
-}
-
-// MARK: - Edge rail
-
-/// A four-point band of the next level's colour, flush to the left edge and
-/// running the whole height of the screen. It is the only piece of chrome that
-/// changes as you progress, and it is small enough to read as a bookmark.
-@MainActor
-struct EdgeRail: View {
-    let palette: [BlendColor]
-
-    static let width: CGFloat = 4
-
-    var body: some View {
-        LinearGradient(colors: palette.map { Color($0) },
-                       startPoint: .top, endPoint: .bottom)
-            .frame(width: Self.width)
-            .overlay(Striation(spacing: 2, opacity: 0.10))
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
-    }
-}
-
-// MARK: - Preview strip
-
-/// Six tiles that keep taking one out and dropping it back.
-///
-/// They sit flush, exactly as they do on the board, and now run the full width
-/// of the device with square ends, so the strip reads as a band of colour the
-/// screen has been cut out of rather than as a widget sitting on it.
-@MainActor
-struct BlendPreviewStrip: View {
-    let palette: [BlendColor]
-    let side: CGFloat
-
-    @State private var liftedIndex: Int?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    static let count = 6
-    private var count: Int { Self.count }
-
-    private var colours: [BlendColor] {
-        guard let first = palette.first, let last = palette.last else { return [] }
-        return (0..<count).map { BlendColor.mix(first, last, Double($0) / Double(count - 1)) }
+    private var status: PlayBlock.Status {
+        if progress.isArcComplete { return .complete }
+        if sessions.snapshot(arc: arc.number, level: nextLevel) != nil { return .resume }
+        return progress.completedCount == 0 ? .start : .next
     }
 
-    /// Headroom above the row for the tile that lifts out.
-    private var lift: CGFloat { side * 0.46 }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            HStack(spacing: 0) {
-                ForEach(Array(colours.enumerated()), id: \.offset) { index, colour in
-                    cell(index: index, colour: colour)
-                }
-            }
-            .frame(height: side)
-        }
-        .frame(height: side + lift + 10)
-        .onAppear { start() }
-        .accessibilityHidden(true)
-    }
-
-    @ViewBuilder
-    private func cell(index: Int, colour: BlendColor) -> some View {
-        let lifted = liftedIndex == index
-
-        ZStack {
-            // Only visible once the tile above it has moved out of the way.
-            SlotView(size: side, isHovered: false, isHinted: false)
-                .opacity(lifted ? 1 : 0)
-
-            TileView(colour: colour, size: side, role: .placed, corners: [], bleed: 0.5)
-                .offset(y: lifted ? -lift : 0)
-                .shadow(color: .black.opacity(lifted ? 0.34 : 0),
-                        radius: lifted ? 16 : 0, y: lifted ? 10 : 0)
-        }
-        .frame(width: side, height: side)
-        .zIndex(lifted ? 1 : 0)
-    }
-
-    private func start() {
-        guard !reduceMotion else { return }
-        Task { await cycle() }
-    }
-
-    private func cycle() async {
-        var step = 0
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .milliseconds(1700))
-            // Never the end tiles — a hole in the middle reads as a gap in the
-            // blend, which is the thing worth showing.
-            withAnimation(Motion.settle) {
-                liftedIndex = 1 + step % (count - 2)
-            }
-            try? await Task.sleep(for: .milliseconds(950))
-            withAnimation(Motion.tile) { liftedIndex = nil }
-            step += 1
+    private func play() {
+        Haptics.play(.snap)
+        // With the whole arc done there is no next board to open; the arc
+        // chooser is where the player picks what to replay.
+        if progress.isArcComplete {
+            router.push(.chromarcs)
+        } else {
+            router.push(.game(nextLevel))
         }
     }
 }

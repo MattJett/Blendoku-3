@@ -100,6 +100,18 @@ enum Tuning {
         case settled
         /// Placed somewhere legal, but it is the wrong colour for the slot.
         case unsettled
+        /// One note of a finished board played back as a song. Shorter and
+        /// softer than a live placement, because the replay runs several to a
+        /// second on a big board and a 1.9-second ring would stack eleven
+        /// deep and turn the melody to mush.
+        case replay
+        /// One step of the climb up the finished board's spectrum. Barely a
+        /// tick: the climb runs at up to twenty notes a second, and it is
+        /// meant to sound like a glissando rather than like sixty bells.
+        case climb
+        /// The top of the climb. The one note of the song allowed to ring out
+        /// in full, so the run lands somewhere instead of just stopping.
+        case crest
     }
 
     /// How many decay time-constants a tone is given before its buffer ends.
@@ -128,6 +140,18 @@ enum Tuning {
             return ToneSpec(frequency: note, companion: note + beat,
                             seconds: 1.15, decay: 1.15 / tail,
                             warmth: warmth, gain: 0.9)
+        case .replay:
+            return ToneSpec(frequency: note, companion: nil,
+                            seconds: 0.90, decay: 0.90 / tail,
+                            warmth: warmth, gain: 0.45)
+        case .climb:
+            return ToneSpec(frequency: note, companion: nil,
+                            seconds: 0.35, decay: 0.35 / tail,
+                            warmth: warmth, gain: 0.36)
+        case .crest:
+            return ToneSpec(frequency: note, companion: nil,
+                            seconds: 1.90, decay: 1.90 / tail,
+                            warmth: warmth, gain: 0.80)
         }
     }
 }

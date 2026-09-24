@@ -19,8 +19,8 @@ extension BlendColor {
 
 /// The design tokens.
 ///
-/// The system is achromatic on purpose. Every surface is a warm grey — paper
-/// in light, ink in dark — and exactly one accent (ember) is allowed to be
+/// The system is achromatic on purpose. Every surface is a warm grey — near
+/// white in Light, near black in Shadow — and exactly one accent (ember) may be
 /// saturated. Colour in this app belongs to the puzzle; if the chrome joins in,
 /// the player stops being able to judge a hue against its neighbour, which is
 /// the only thing the game asks them to do.
@@ -48,8 +48,8 @@ enum Theme {
     /// anywhere in the chrome — an edge is a lighting result, not a drawn line.
     ///
     /// The alphas are baked into the colours rather than applied at the call
-    /// site, because the two grounds need very different ones: on paper the
-    /// highlight is nearly opaque white and the shadow is gentle, while on ink
+    /// site, because the two grounds need very different ones: in Light the
+    /// highlight is nearly opaque white and the shadow is gentle, while in Shadow
     /// the shadow goes to true black and the highlight has to stay faint or the
     /// surface turns to plastic.
     static let shadowDeep = dynamic(light: 0x9E978C, lightAlpha: 0.55,
@@ -64,9 +64,24 @@ enum Theme {
     /// Micro-labels and registration marks. Deliberately close to the ground.
     static let textTertiary = dynamic(light: 0x9B968F, dark: 0x5D5B56)
 
+    // MARK: - Carving
+
+    /// Lettering cut into the page rather than printed on it: the wordmark,
+    /// and the big screen titles. A touch darker than the ground, with a
+    /// shade along the top edge and a catch of light along the bottom, which
+    /// is what a letter pressed into paper looks like under a lamp.
+    static let carveFill = dynamic(light: 0xD9D4CC, dark: 0x08090B)
+    static let carveLight = dynamic(light: 0xFFFFFF, lightAlpha: 0.95,
+                                    dark: 0xFFFFFF, darkAlpha: 0.11)
+    static let carveShade = dynamic(light: 0x8F887D, lightAlpha: 0.55,
+                                    dark: 0x000000, darkAlpha: 0.90)
+    /// Lettering knocked out of a colour field. Always pale, on both grounds,
+    /// because the field it sits in is colour rather than page.
+    static let knockout = Color(red: 0.965, green: 0.957, blue: 0.941)
+
     // MARK: - Accent
 
-    /// The one saturated thing in the chrome. Darker on paper so it still
+    /// The one saturated thing in the chrome. Darker in Light so it still
     /// carries against a light ground.
     static let accent = dynamic(light: 0xB9741A, dark: 0xE9A33F)
     static let success = dynamic(light: 0x4C7A5A, dark: 0x74B48E)

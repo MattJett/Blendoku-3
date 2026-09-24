@@ -18,11 +18,21 @@ final class SoundField {
 
     var isEnabled = true
 
+    /// Whether a note asked for now would actually sound.
+    var isLive: Bool { isEnabled && !Runtime.isSilent }
+
     #if canImport(AVFoundation)
     private let engine = AVAudioEngine()
     private var players: [AVAudioPlayerNode] = []
+    /// The finished board's song gets a player of its own, so a tap on the
+    /// victory panel can never cut it off halfway.
+    private let songPlayer = AVAudioPlayerNode()
     private var nextPlayer = 0
-    private var started = false
+    private var wired = false
+    /// Whether the audio session is configured and active. Checked on every
+    /// note but *set* only when it has to be: configuring a session is a
+    /// round trip to the audio server, and it used to happen on every tap.
+    private var sessionReady = false
 
     private struct Key: Hashable {
         var step: Int
@@ -35,8 +45,10 @@ final class SoundField {
     private var generation = 0
     private let renderQueue = DispatchQueue(label: "swatchword.tones", qos: .utility)
 
-    private static let sampleRate = 44_100.0
-    private static let voices = 6
+    static let sampleRate = 44_100.0
+    /// Enough for two quick hands. The song no longer draws on this pool —
+    /// it is one pre-mixed buffer on a player of its own.
+    private static let voices = 8
 
     private var format: AVAudioFormat? {
         AVAudioFormat(commonFormat: .pcmFormatFloat32,
@@ -46,7 +58,25 @@ final class SoundField {
     }
     #endif
 
-    private init() {}
+    private init() {
+        #if canImport(AVFoundation)
+        let centre = NotificationCenter.default
+        // An interruption — a call, Siri, another app claiming the session —
+        // deactivates ours without asking. Forget it was ready, so the next
+        // note sets it up again instead of playing into nothing.
+        centre.addObserver(forName: AVAudioSession.interruptionNotification,
+                           object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.sessionReady = false }
+        }
+        centre.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification,
+                           object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.sessionReady = false
+                self?.wired = false
+            }
+        }
+        #endif
+    }
 
     // MARK: - Level
 
@@ -61,6 +91,7 @@ final class SoundField {
         generation += 1
         let token = generation
         let events: [Tuning.Event] = [.pickUp, .settled, .unsettled]
+        let rate = Self.sampleRate
 
         renderQueue.async { [weak self] in
             var built: [Key: [Float]] = [:]
@@ -68,7 +99,7 @@ final class SoundField {
                 for event in events {
                     let spec = Tuning.voice(step: step, event: event, warmth: warmth)
                     built[Key(step: step, event: event)] =
-                        ToneRenderer.render(spec, sampleRate: Self.sampleRate)
+                        ToneRenderer.render(spec, sampleRate: rate)
                 }
             }
             Task { @MainActor in self?.install(built, token: token) }
@@ -80,18 +111,45 @@ final class SoundField {
 
     func play(_ event: Tuning.Event, for colour: BlendColor) {
         #if canImport(AVFoundation)
-        guard isEnabled else { return }
+        guard isLive else { return }
         let key = Key(step: Tuning.step(for: colour), event: event)
-        guard let buffer = buffers[key] else { return }
-        guard start() else { return }
+        guard let buffer = buffers[key], start(), !players.isEmpty else { return }
 
         let player = players[nextPlayer]
         nextPlayer = (nextPlayer + 1) % players.count
         // Stopping first frees the node if it is still ringing from an earlier
-        // tap; six voices is plenty for two hands but a fast player can lap it.
+        // tap; the pool is plenty for two hands but a fast player can lap it.
         player.stop()
         player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
         player.play()
+        #endif
+    }
+
+    /// Plays a pre-mixed song from the top. Returns whether it is sounding.
+    @discardableResult
+    func playSong(_ samples: [Float]) -> Bool {
+        #if canImport(AVFoundation)
+        guard isLive, !samples.isEmpty, let format, start(),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format,
+                                            frameCapacity: AVAudioFrameCount(samples.count)),
+              let channel = buffer.floatChannelData?[0] else { return false }
+        samples.withUnsafeBufferPointer { source in
+            guard let base = source.baseAddress else { return }
+            channel.update(from: base, count: samples.count)
+        }
+        buffer.frameLength = AVAudioFrameCount(samples.count)
+        songPlayer.stop()
+        songPlayer.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+        songPlayer.play()
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    func stopSong() {
+        #if canImport(AVFoundation)
+        songPlayer.stop()
         #endif
     }
 
@@ -106,7 +164,8 @@ final class SoundField {
                                                 frameCapacity: AVAudioFrameCount(samples.count)),
                   let channel = buffer.floatChannelData?[0] else { continue }
             samples.withUnsafeBufferPointer { source in
-                channel.update(from: source.baseAddress!, count: samples.count)
+                guard let base = source.baseAddress else { return }
+                channel.update(from: base, count: samples.count)
             }
             buffer.frameLength = AVAudioFrameCount(samples.count)
             made[key] = buffer
@@ -116,28 +175,42 @@ final class SoundField {
 
     @discardableResult
     private func start() -> Bool {
-        // `.ambient` on purpose: this game must never stop whatever the player
-        // already had playing, and it should go quiet with the ringer switch.
-        // A meditation app that hijacks your music is not a meditation app.
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-        try? session.setActive(true)
-
-        if !started, let format {
-            for _ in 0..<Self.voices {
-                let player = AVAudioPlayerNode()
-                engine.attach(player)
-                engine.connect(player, to: engine.mainMixerNode, format: format)
-                players.append(player)
+        if !sessionReady {
+            // `.ambient` on purpose: this game must never stop whatever the
+            // player already had playing, and it should go quiet with the
+            // ringer switch. A meditation app that hijacks your music is not a
+            // meditation app.
+            let session = AVAudioSession.sharedInstance()
+            do {
+                try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+                try session.setActive(true)
+                sessionReady = true
+            } catch {
+                return false
             }
+        }
+
+        if !wired, let format {
+            if players.isEmpty {
+                for _ in 0..<Self.voices {
+                    let player = AVAudioPlayerNode()
+                    engine.attach(player)
+                    players.append(player)
+                }
+                engine.attach(songPlayer)
+            }
+            for player in players {
+                engine.connect(player, to: engine.mainMixerNode, format: format)
+            }
+            engine.connect(songPlayer, to: engine.mainMixerNode, format: format)
             // Soft by default. The tones are already quiet; this is the room
             // they are quiet in.
             engine.mainMixerNode.outputVolume = 0.55
-            started = true
+            wired = true
         }
 
-        // Restarted rather than assumed: an interruption — a call, another app
-        // taking the session — stops the engine, and nothing tells us.
+        // Restarted rather than assumed: an interruption stops the engine,
+        // and nothing tells us.
         if !engine.isRunning {
             do { try engine.start() } catch { return false }
         }
